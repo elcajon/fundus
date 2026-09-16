@@ -71,6 +71,19 @@ final class AppModel {
         return value
     }
 
+    /// Liest die Geheimnisse abseits des Hauptthreads vor. Eine Schlüsselbund-Abfrage blockiert so
+    /// nicht das Fenster, und die späteren Zugriffe kommen aus dem Cache.
+    private func preloadSecrets() async {
+        guard let serverURL else { return }
+        let accounts = [serverURL.absoluteString, "pangolin@" + serverURL.absoluteString]
+            .filter { secretCache[$0] == nil }
+        guard !accounts.isEmpty else { return }
+        let values = await Task.detached(priority: .userInitiated) {
+            accounts.map { Keychain.token(for: $0) ?? "" }
+        }.value
+        for (account, value) in zip(accounts, values) { secretCache[account] = value }
+    }
+
     private func setSecret(_ value: String, _ account: String) {
         guard secretCache[account] != value else { return }
         secretCache[account] = value
@@ -125,6 +138,7 @@ final class AppModel {
     func connect() async {
         guard let serverURL else { phase = .unconfigured; return }
         phase = .connecting
+        await preloadSecrets()
         let client = PaperlessClient(baseURL: serverURL, token: apiToken)
         client.pangolinTokenID = pangolinTokenID
         client.pangolinToken = pangolinToken

@@ -18,13 +18,12 @@ struct ReaderView: View {
 
             if let pdf {
                 PDFKitView(document: pdf)
-                    .padding(.top, 52)
             } else if let image {
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFit()
                     .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
-                    .padding(EdgeInsets(top: 72, leading: 40, bottom: 36, trailing: 40))
+                    .padding(EdgeInsets(top: 24, leading: 40, bottom: 28, trailing: 40))
             } else if let error {
                 VStack(spacing: 10) {
                     Text(error).foregroundStyle(.secondary)
@@ -37,8 +36,8 @@ struct ReaderView: View {
                     .scaledToFit()
                     .blur(radius: 0.6)
                     .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
-                    .padding(EdgeInsets(top: 72, leading: 40, bottom: 36, trailing: 40))
-                    .overlay(alignment: .bottom) { ProgressView().controlSize(.small).padding(.bottom, 56) }
+                    .padding(EdgeInsets(top: 24, leading: 40, bottom: 28, trailing: 40))
+                    .overlay(alignment: .bottom) { ProgressView().controlSize(.small).padding(.bottom, 48) }
             } else {
                 ProgressView().controlSize(.small)
             }
