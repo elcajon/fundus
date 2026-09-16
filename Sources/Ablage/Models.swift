@@ -52,10 +52,12 @@ struct NamedItem: Decodable, Identifiable, Hashable {
     let name: String
     let documentCount: Int?
     let color: String?
+    let textColor: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, color
         case documentCount = "document_count"
+        case textColor = "text_color"
     }
 
     init(from decoder: Decoder) throws {
@@ -65,6 +67,7 @@ struct NamedItem: Decodable, Identifiable, Hashable {
         documentCount = try? c.decode(Int.self, forKey: .documentCount)
         // Bei alten API-Versionen ist color ein Index statt eines Hex-Strings.
         color = try? c.decode(String.self, forKey: .color)
+        textColor = try? c.decode(String.self, forKey: .textColor)
     }
 }
 

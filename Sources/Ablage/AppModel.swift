@@ -1,6 +1,7 @@
 import AppKit
 import Observation
 import SwiftUI
+import UniformTypeIdentifiers
 
 @MainActor
 @Observable
@@ -29,6 +30,13 @@ final class AppModel {
     private var typesByID: [Int: NamedItem] = [:]
 
     var filter: SidebarItem = .all
+    var selection: Int?
+    var searchFocusRequest = 0
+    /// Dokument, das gerade im Lesemodus offen ist.
+    var readerID: Int?
+    var zoom: Double = UserDefaults.standard.object(forKey: "zoom") as? Double ?? 1 {
+        didSet { defaults.set(zoom, forKey: "zoom") }
+    }
     var search = ""
     var documents: [Document] = []
     var totalCount = 0
@@ -193,6 +201,7 @@ final class AppModel {
         totalCount = 0
         isLoadingPage = false
         await loadMore()
+        if let selection, document(selection) == nil { self.selection = nil }
     }
 
     func loadMore() async {
@@ -235,6 +244,83 @@ final class AppModel {
             }
         }
         toast = done == 1 ? "1 Dokument an Paperless übergeben." : "\(done) Dokumente an Paperless übergeben."
+    }
+
+    // MARK: - Aktionen
+
+    func document(_ id: Int?) -> Document? {
+        documents.first { $0.id == id }
+    }
+
+    var actionTarget: Document? { document(readerID ?? selection) }
+
+    func openReader(_ id: Int? = nil) {
+        guard let id = id ?? selection else { return }
+        selection = id
+        readerID = id
+    }
+
+    func step(_ delta: Int) {
+        guard !documents.isEmpty else { return }
+        let current = readerID ?? selection
+        let index = documents.firstIndex { $0.id == current } ?? (delta > 0 ? -1 : documents.count)
+        let next = documents[min(max(index + delta, 0), documents.count - 1)].id
+        selection = next
+        if readerID != nil { readerID = next }
+        if index + delta >= documents.count - 8 { Task { await loadMore() } }
+    }
+
+    func zoomIn() { zoom = min(zoom * 1.2, 2.2) }
+    func zoomOut() { zoom = max(zoom / 1.2, 0.5) }
+    func resetView() { zoom = 1; search = ""; readerID = nil }
+
+    func importFiles() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.pdf, .image, .plainText, .rtf, .item]
+        panel.prompt = "Importieren"
+        guard panel.runModal() == .OK else { return }
+        Task { await upload(panel.urls) }
+    }
+
+    /// Lädt das Original in einen temporären Ordner, damit Teilen und Export echte Dateien haben.
+    private func fetchOriginal(_ doc: Document) async -> URL? {
+        guard let client else { return nil }
+        do {
+            let data = try await client.download(doc.id, original: true)
+            let dir = FileManager.default.temporaryDirectory.appending(path: "Ablage-\(doc.id)")
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let name = doc.originalFileName ?? "\(doc.title).pdf"
+            let url = dir.appending(path: name.replacingOccurrences(of: "/", with: "-"))
+            try data.write(to: url)
+            return url
+        } catch {
+            toast = error.localizedDescription
+            return nil
+        }
+    }
+
+    func share() async {
+        guard let doc = actionTarget, let url = await fetchOriginal(doc),
+              let view = NSApp.keyWindow?.contentView else { return }
+        let picker = NSSharingServicePicker(items: [url])
+        let anchor = NSRect(x: view.bounds.maxX - 90, y: view.bounds.maxY - 44, width: 30, height: 30)
+        picker.show(relativeTo: anchor, of: view, preferredEdge: .minY)
+    }
+
+    func export() async {
+        guard let doc = actionTarget else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = doc.originalFileName ?? "\(doc.title).pdf"
+        guard panel.runModal() == .OK, let target = panel.url,
+              let source = await fetchOriginal(doc) else { return }
+        do {
+            try? FileManager.default.removeItem(at: target)
+            try FileManager.default.copyItem(at: source, to: target)
+        } catch {
+            toast = error.localizedDescription
+        }
     }
 
     // MARK: - Lookups

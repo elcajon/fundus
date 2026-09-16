@@ -1,119 +1,46 @@
 import PDFKit
 import SwiftUI
 
-struct InspectorView: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.openWindow) private var openWindow
-    let document: Document?
-
-    var body: some View {
-        if let document {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    Text(document.title)
-                        .font(.title3.weight(.semibold))
-                        .textSelection(.enabled)
-
-                    Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
-                        field("Absender", model.correspondentName(document.correspondent))
-                        field("Typ", model.typeName(document.documentType))
-                        field("Datum", document.createdDate?.formatted(date: .long, time: .omitted))
-                        field("Seiten", document.pageCount.map(String.init))
-                        field("Datei", document.originalFileName)
-                        field("ID", "#\(document.id)")
-                    }
-                    .font(.callout)
-
-                    if !document.tags.isEmpty {
-                        FlowTags(ids: document.tags)
-                    }
-
-                    HStack {
-                        Button("Lesen") { openWindow(value: document.id) }
-                            .buttonStyle(.borderedProminent)
-                        if let url = model.client?.webURL(for: document.id) {
-                            Button("In Paperless") { NSWorkspace.shared.open(url) }
-                        }
-                    }
-
-                    if let content = document.content, !content.isEmpty {
-                        Divider()
-                        Text(content)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                    }
-                }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        } else {
-            ContentUnavailableView("Kein Dokument ausgewählt", systemImage: "doc.text.magnifyingglass",
-                                   description: Text("Doppelklick oder Leertaste öffnet es zum Lesen."))
-        }
-    }
-
-    @ViewBuilder private func field(_ label: String, _ value: String?) -> some View {
-        if let value, !value.isEmpty {
-            GridRow {
-                Text(label).foregroundStyle(.secondary)
-                Text(value).textSelection(.enabled)
-            }
-        }
-    }
-}
-
-struct FlowTags: View {
-    @Environment(AppModel.self) private var model
-    let ids: [Int]
-
-    var body: some View {
-        HStack(spacing: 6) {
-            ForEach(ids.compactMap(model.tag).prefix(6)) { tag in
-                Text(tag.name)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background((Color(hex: tag.color) ?? .secondary).opacity(0.25), in: Capsule())
-            }
-        }
-    }
-}
-
+/// Lesemodus im Hauptfenster: das Dokument in voller Größe, Titel und Datum in der Leiste.
 struct ReaderView: View {
     @Environment(AppModel.self) private var model
     let documentID: Int
-    @State private var document: Document?
     @State private var pdf: PDFDocument?
     @State private var image: NSImage?
+    @State private var placeholder: NSImage?
     @State private var error: String?
 
     var body: some View {
-        Group {
+        ZStack {
+            Color(nsColor: .windowBackgroundColor)
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) { model.readerID = nil }
+
             if let pdf {
                 PDFKitView(document: pdf)
+                    .padding(.top, 52)
             } else if let image {
-                ScrollView { Image(nsImage: image).resizable().scaledToFit().padding() }
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
+                    .padding(EdgeInsets(top: 72, leading: 40, bottom: 36, trailing: 40))
             } else if let error {
-                ContentUnavailableView("Konnte nicht geladen werden", systemImage: "exclamationmark.triangle",
-                                       description: Text(error))
+                VStack(spacing: 10) {
+                    Text(error).foregroundStyle(.secondary)
+                    Button("Zurück") { model.readerID = nil }
+                }
+            } else if let placeholder {
+                // Das Vorschaubild steht schon da, bis das PDF geladen ist.
+                Image(nsImage: placeholder)
+                    .resizable()
+                    .scaledToFit()
+                    .blur(radius: 0.6)
+                    .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
+                    .padding(EdgeInsets(top: 72, leading: 40, bottom: 36, trailing: 40))
+                    .overlay(alignment: .bottom) { ProgressView().controlSize(.small).padding(.bottom, 56) }
             } else {
-                ProgressView()
-            }
-        }
-        .navigationTitle(document?.title ?? "Dokument")
-        .toolbar {
-            if let url = model.client?.webURL(for: documentID) {
-                ToolbarItem {
-                    Button { NSWorkspace.shared.open(url) } label: {
-                        Label("In Paperless öffnen", systemImage: "safari")
-                    }
-                }
-            }
-            ToolbarItem {
-                Button { Task { await saveOriginal() } } label: {
-                    Label("Original sichern", systemImage: "square.and.arrow.down")
-                }
+                ProgressView().controlSize(.small)
             }
         }
         .task(id: documentID) { await load() }
@@ -121,17 +48,16 @@ struct ReaderView: View {
 
     private func load() async {
         guard let client = model.client else { error = "Keine Verbindung."; return }
+        placeholder = await model.thumbnails.image(for: documentID, client: client)
         do {
-            async let meta = client.document(documentID)
             let data = try await client.preview(documentID)
-            if let pdf = PDFDocument(data: data) {
-                self.pdf = pdf
-            } else if let image = NSImage(data: data) {
-                self.image = image
+            if let doc = PDFDocument(data: data) {
+                pdf = doc
+            } else if let img = NSImage(data: data) {
+                image = img
             } else {
-                error = "Unbekanntes Vorschauformat."
+                error = "Diese Vorschau kann ich nicht anzeigen."
             }
-            document = try? await meta
         } catch ClientError.pangolinLoginRequired {
             model.loginHint = "Die Pangolin-Session ist abgelaufen. Bitte neu anmelden."
             model.showLogin = true
@@ -140,19 +66,36 @@ struct ReaderView: View {
             self.error = error.localizedDescription
         }
     }
+}
 
-    @MainActor
-    private func saveOriginal() async {
-        guard let client = model.client else { return }
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = document?.originalFileName ?? "\(document?.title ?? "Dokument").pdf"
-        guard panel.runModal() == .OK, let target = panel.url else { return }
-        do {
-            let data = try await client.download(documentID, original: true)
-            try data.write(to: target)
-        } catch {
-            model.toast = error.localizedDescription
-        }
+/// Passt die Seite ganz ins Fenster ein, bis der Nutzer selbst zoomt.
+private final class FitPDFView: PDFView {
+    private var userZoomed = false
+
+    override func layout() {
+        super.layout()
+        fitIfNeeded()
+    }
+
+    override func magnify(with event: NSEvent) {
+        userZoomed = true
+        super.magnify(with: event)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        if event.modifierFlags.contains(.command) { userZoomed = true }
+        super.scrollWheel(with: event)
+    }
+
+    func fitIfNeeded() {
+        guard !userZoomed, let page = document?.page(at: 0) else { return }
+        let bounds = page.bounds(for: displayBox)
+        let rotated = page.rotation % 180 != 0
+        let pageSize = rotated ? CGSize(width: bounds.height, height: bounds.width) : bounds.size
+        let available = CGSize(width: self.bounds.width - 60, height: self.bounds.height - 48)
+        guard pageSize.width > 0, pageSize.height > 0, available.width > 0, available.height > 0 else { return }
+        let scale = min(available.width / pageSize.width, available.height / pageSize.height)
+        if abs(scaleFactor - scale) > 0.001 { scaleFactor = scale }
     }
 }
 
@@ -160,11 +103,15 @@ private struct PDFKitView: NSViewRepresentable {
     let document: PDFDocument
 
     func makeNSView(context: Context) -> PDFView {
-        let view = PDFView()
-        view.autoScales = true
+        let view = FitPDFView()
+        view.autoScales = false
         view.displayMode = .singlePageContinuous
-        view.backgroundColor = .underPageBackgroundColor
+        view.displaysPageBreaks = true
+        view.pageShadowsEnabled = true
+        view.pageBreakMargins = NSEdgeInsets(top: 12, left: 24, bottom: 24, right: 24)
+        view.backgroundColor = .windowBackgroundColor
         view.document = document
+        view.fitIfNeeded()
         return view
     }
 

@@ -56,5 +56,7 @@ struct OnboardingView: View {
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { WindowDragArea() }
+        .ignoresSafeArea()
     }
 }
