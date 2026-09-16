@@ -31,14 +31,24 @@ struct LibraryView: View {
             }
         }
         .animation(.spring(duration: 0.35, bounce: 0.12), value: model.readerID)
+        .overlay(alignment: .top) { OfflineBanner() }
         .overlay(alignment: .bottom) { ToastView() }
+        .inspector(isPresented: $model.showInspector) {
+            DocumentInspector()
+                .inspectorColumnWidth(min: 260, ideal: 300, max: 400)
+        }
         .navigationTitle(title)
         .navigationSubtitle(subtitle)
         .toolbar { toolbar }
-        .searchable(text: $model.search, placement: .toolbar, prompt: "Suchen")
+        .searchable(text: $model.search, tokens: $model.searchTokens, placement: .toolbar,
+                    prompt: Text("Suchen, #Tag, @Absender, typ:Typ")) { token in
+            Label(model.name(of: token), systemImage: model.symbol(of: token))
+        }
         .searchFocus($searchFocused)
         .searchSuggestions { suggestions }
         .onSubmit(of: .search) {
+            model.submitSearch()
+            if model.search.isEmpty { return }
             if let first = model.documents.first { model.openReader(first.id) }
             gridFocused = true
         }
@@ -49,11 +59,12 @@ struct LibraryView: View {
         .focused($gridFocused)
         .onAppear { gridFocused = true }
         .onChange(of: model.readerID) { gridFocused = true }
+        .onCommand(#selector(NSResponder.selectAll(_:))) { model.selectAll() }
         .onKeyPress(.space) { toggleReader() }
         .onKeyPress(.return) { toggleReader() }
         .onKeyPress(.escape) {
             if model.readerID != nil { model.readerID = nil; return .handled }
-            if model.selection != nil { model.selection = nil; return .handled }
+            if !model.selectedIDs.isEmpty { model.select(nil); return .handled }
             return .ignored
         }
         .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow]) { press in
@@ -71,11 +82,14 @@ struct LibraryView: View {
             }
             return .handled
         }
-        .task(id: model.search) {
+        .task(id: model.query) {
             // Tipp-Pausen abwarten, damit nicht jede Taste eine Volltextsuche auslöst.
             try? await Task.sleep(for: .milliseconds(model.search.isEmpty ? 0 : 280))
-            guard !Task.isCancelled, model.phase == .ready else { return }
-            await model.reload()
+            guard !Task.isCancelled else { return }
+            switch model.phase {
+            case .ready, .offline: await model.reload()
+            default: break
+            }
         }
     }
 
@@ -90,11 +104,16 @@ struct LibraryView: View {
             return doc.createdDate?.formatted(date: .long, time: .omitted) ?? ""
         }
         switch model.phase {
-        case .connecting: return "Verbinde …"
+        case .connecting: return String(localized: "Verbinde …")
         case let .failed(message): return message
         default:
-            if !model.search.isEmpty { return model.totalCount == 1 ? "1 Treffer" : "\(model.totalCount) Treffer" }
-            return model.totalCount == 1 ? "1 Dokument" : "\(model.totalCount) Dokumente"
+            if model.selectedIDs.count > 1 {
+                return String(localized: "\(model.selectedIDs.count) von \(model.totalCount) ausgewählt")
+            }
+            if model.query.isFiltered {
+                return String(localized: "\(model.totalCount) Treffer")
+            }
+            return model.totalCount == 1 ? String(localized: "1 Dokument") : String(localized: "\(model.totalCount) Dokumente")
         }
     }
 
@@ -107,6 +126,11 @@ struct LibraryView: View {
                 .help("Zurück zur Übersicht (Esc)")
             }
         }
+        if model.activeImportCount > 0 || model.failedImportCount > 0 {
+            ToolbarItem(placement: .primaryAction) {
+                ImportStatusButton()
+            }
+        }
         ToolbarItemGroup(placement: .primaryAction) {
             Button { model.importFiles() } label: {
                 Label("Importieren", systemImage: "plus")
@@ -117,17 +141,32 @@ struct LibraryView: View {
                 Label("Teilen", systemImage: "square.and.arrow.up")
             }
             .help("Teilen (⇧⌘S)")
-            .disabled(model.actionTarget == nil)
+            .disabled(model.actionTargets.isEmpty)
             Button { Task { await model.export() } } label: {
                 Label("Exportieren", systemImage: "square.and.arrow.down")
             }
             .help("Exportieren (⌘E)")
-            .disabled(model.actionTarget == nil)
+            .disabled(model.actionTargets.isEmpty)
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Button { model.showInspector.toggle() } label: {
+                Label("Informationen", systemImage: "info.circle")
+            }
+            .help("Informationen (⌘I)")
         }
     }
 
     @ViewBuilder private var suggestions: some View {
-        if !model.search.isEmpty {
+        let tokens = model.tokenSuggestions
+        if !tokens.isEmpty {
+            ForEach(tokens) { token in
+                Button {
+                    model.addToken(token)
+                } label: {
+                    Label(model.name(of: token), systemImage: model.symbol(of: token))
+                }
+            }
+        } else if !model.search.trimmingCharacters(in: .whitespaces).isEmpty {
             ForEach(model.documents.prefix(6)) { doc in
                 Button {
                     model.openReader(doc.id)
@@ -137,13 +176,21 @@ struct LibraryView: View {
                     Label(doc.title, systemImage: "doc.text")
                 }
             }
+        } else if model.searchTokens.isEmpty {
+            Section("Filter") {
+                Button { model.toggleInbox() } label: {
+                    Label("Eingang", systemImage: "tray")
+                }
+                Text("#Tag, @Korrespondent oder typ:Dokumenttyp eingeben")
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
     private func toggleReader() -> KeyPress.Result {
         if model.readerID != nil {
             model.readerID = nil
-        } else if model.selection != nil {
+        } else if model.focusedID != nil {
             model.openReader()
         } else {
             return .ignored
@@ -163,6 +210,52 @@ struct LibraryView: View {
             await model.upload(urls)
         }
         return true
+    }
+}
+
+private struct OfflineBanner: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        if case let .offline(reason) = model.phase {
+            HStack(spacing: 8) {
+                Image(systemName: "wifi.slash")
+                Text("Offline: lokale Kopie. \(reason)")
+                    .lineLimit(1)
+                Button("Erneut verbinden") { Task { await model.connect() } }
+                    .buttonStyle(.link)
+            }
+            .font(.callout)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .glassCapsule()
+            .padding(.top, 8)
+        }
+    }
+}
+
+struct ImportStatusButton: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var model = model
+        Button { model.showImports.toggle() } label: {
+            if model.activeImportCount > 0 {
+                Label {
+                    Text(model.activeImportCount == 1 ? LocalizedStringKey("1 Import") : LocalizedStringKey("\(model.activeImportCount) Importe"))
+                } icon: {
+                    ProgressView().controlSize(.small)
+                }
+            } else {
+                Label("\(model.failedImportCount) fehlgeschlagen", systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
+        }
+        .help("Importe anzeigen")
+        .popover(isPresented: $model.showImports, arrowEdge: .bottom) {
+            ImportsView()
+                .frame(width: 380, height: 320)
+        }
     }
 }
 
@@ -210,15 +303,15 @@ struct DocumentGrid: View {
                 .softTopScrollEdge()
                 .background {
                     // Klick ins Leere hebt die Auswahl auf.
-                    Color.clear.contentShape(Rectangle()).onTapGesture { model.selection = nil }
+                    Color.clear.contentShape(Rectangle()).onTapGesture { model.select(nil) }
                 }
                 .overlay { EmptyState() }
-                .onChange(of: model.selection) { _, id in
+                .onChange(of: model.focusedID) { _, id in
                     guard let id, model.readerID == nil else { return }
                     withAnimation(.smooth(duration: 0.25)) { proxy.scrollTo(id) }
                 }
                 .onChange(of: count, initial: true) { _, new in columns = new }
-                .onChange(of: model.search) { proxy.scrollTo("top", anchor: .top) }
+                .onChange(of: model.query) { proxy.scrollTo("top", anchor: .top) }
             }
         }
     }
@@ -236,8 +329,11 @@ private struct EmptyState: View {
                     Text(message).foregroundStyle(.secondary)
                     Button("Erneut verbinden") { Task { await model.connect() } }
                         .glassButtonStyle()
-                } else if !model.search.isEmpty {
-                    Text("Nichts gefunden für „\(model.search)“").foregroundStyle(.secondary)
+                } else if model.searchTokens == [.inbox] && model.search.isEmpty {
+                    Label("Eingang ist leer", systemImage: "checkmark.circle")
+                        .foregroundStyle(.secondary)
+                } else if model.query.isFiltered {
+                    Text("Keine Treffer").foregroundStyle(.secondary)
                 } else {
                     Text("Noch keine Dokumente").foregroundStyle(.secondary)
                 }
@@ -257,28 +353,22 @@ struct DocumentTile: View {
     let document: Document
     let width: CGFloat
 
-    private var isSelected: Bool { model.selection == document.id }
+    private var isSelected: Bool { model.selectedIDs.contains(document.id) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             PageStack(document: document, box: CGSize(width: width, height: width * 1.9), isSelected: isSelected)
                 .onTapGesture {
                     // Doppelklick über den Klickzähler erkennen, damit die Auswahl ohne Verzögerung reagiert.
-                    if NSApp.currentEvent?.clickCount ?? 1 >= 2 {
+                    let event = NSApp.currentEvent
+                    if (event?.clickCount ?? 1) >= 2 {
                         model.openReader(document.id)
                     } else {
-                        model.selection = document.id
+                        model.click(document.id, modifiers: event?.modifierFlags ?? [])
                     }
                 }
-                .contextMenu {
-                    Button("Lesen") { model.openReader(document.id) }
-                    Button("Teilen …") { model.selection = document.id; Task { await model.share() } }
-                    Button("Exportieren …") { model.selection = document.id; Task { await model.export() } }
-                    Divider()
-                    if let url = model.client?.webURL(for: document.id) {
-                        Button("In Paperless öffnen") { NSWorkspace.shared.open(url) }
-                    }
-                }
+                .onDrag { model.dragProvider(for: document) }
+                .contextMenu { contextMenu }
 
             if showInfo {
                 VStack(alignment: .leading, spacing: 4) {
@@ -291,6 +381,12 @@ struct DocumentTile: View {
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
+                    if let highlight = document.searchHit?.highlights, !highlight.isEmpty {
+                        Text(highlightText(highlight))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
                     pills
                         .padding(.top, 1)
                 }
@@ -298,6 +394,61 @@ struct DocumentTile: View {
             }
         }
         .frame(width: width, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { model.select(document.id) }
+        .accessibilityAction(named: Text("Lesen")) { model.openReader(document.id) }
+    }
+
+    private var accessibilityText: String {
+        var parts = [document.title]
+        if let name = model.correspondentName(document.correspondent) { parts.append(name) }
+        if let date = document.createdDate { parts.append(date.formatted(date: .long, time: .omitted)) }
+        let tags = document.tags.compactMap { model.tag($0)?.name }
+        if !tags.isEmpty { parts.append(String(localized: "Tags: \(tags.joined(separator: ", "))")) }
+        if model.isInInbox(document) { parts.append(String(localized: "im Eingang")) }
+        return parts.joined(separator: ", ")
+    }
+
+    @ViewBuilder private var contextMenu: some View {
+        Button("Lesen") { model.openReader(document.id) }
+        Button("Informationen") {
+            model.select(document.id)
+            model.showInspector = true
+        }
+        Divider()
+        Button("Teilen …") {
+            if !isSelected { model.select(document.id) }
+            Task { await model.share() }
+        }
+        Button("Exportieren …") {
+            if !isSelected { model.select(document.id) }
+            Task { await model.export() }
+        }
+        if model.isInInbox(document) && model.canEdit {
+            Divider()
+            Button("Als erledigt markieren") { Task { await model.markDone(document.id) } }
+        }
+        Divider()
+        if let url = model.client?.webURL(for: document.id) {
+            Button("In Paperless öffnen") { NSWorkspace.shared.open(url) }
+            Button("Link kopieren") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(url.absoluteString, forType: .string)
+            }
+        }
+    }
+
+    private func highlightText(_ html: String) -> AttributedString {
+        HighlightParser.segments(html).reduce(into: AttributedString()) { result, segment in
+            var part = AttributedString(segment.text)
+            if segment.isMatch {
+                part.foregroundColor = .primary
+                part.font = .system(size: 11, weight: .semibold)
+            }
+            result += part
+        }
     }
 
     @ViewBuilder private var pills: some View {
@@ -332,6 +483,7 @@ struct PageStack: View {
     let box: CGSize
     let isSelected: Bool
     @State private var image: NSImage?
+    private var inInbox: Bool { model.isInInbox(document) }
 
     private var pageSize: CGSize {
         let ratio = image.map { $0.size.height / max($0.size.width, 1) } ?? 1.414
@@ -363,14 +515,23 @@ struct PageStack: View {
                             .padding(-5)
                             .opacity(isSelected ? 1 : 0)
                     }
+                    .overlay(alignment: .topTrailing) {
+                        if inInbox {
+                            Circle()
+                                .fill(Color.accentColor)
+                                .frame(width: 10, height: 10)
+                                .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                                .offset(x: 4, y: -4)
+                                .help("Im Eingang")
+                        }
+                    }
             }
             .contentShape(Rectangle())
         }
         .frame(width: box.width, height: box.height, alignment: .bottomLeading)
         .animation(.smooth(duration: 0.2), value: isSelected)
         .task(id: document.id) {
-            guard let client = model.client else { return }
-            image = await model.thumbnails.image(for: document.id, client: client)
+            image = await model.thumbnails.image(for: document.id, client: model.client)
         }
     }
 
