@@ -4,11 +4,13 @@ import UniformTypeIdentifiers
 struct LibraryView: View {
     @Environment(AppModel.self) private var model
     @FocusState private var gridFocused: Bool
+    @FocusState private var searchFocused: Bool
     @State private var columns = 1
     @State private var dropTargeted = false
 
     var body: some View {
-        ZStack(alignment: .top) {
+        @Bindable var model = model
+        ZStack {
             DocumentGrid(columns: $columns)
                 .opacity(model.readerID == nil ? 1 : 0)
                 .scaleEffect(model.readerID == nil ? 1 : 1.03)
@@ -20,8 +22,6 @@ struct LibraryView: View {
                                             removal: .scale(scale: 0.96).combined(with: .opacity)))
             }
 
-            TopBar()
-
             if dropTargeted {
                 RoundedRectangle(cornerRadius: 16)
                     .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [7, 6]))
@@ -30,9 +30,19 @@ struct LibraryView: View {
                     .allowsHitTesting(false)
             }
         }
-        .ignoresSafeArea()
         .animation(.spring(duration: 0.35, bounce: 0.12), value: model.readerID)
         .overlay(alignment: .bottom) { ToastView() }
+        .navigationTitle(title)
+        .navigationSubtitle(subtitle)
+        .toolbar { toolbar }
+        .searchable(text: $model.search, placement: .toolbar, prompt: "Suchen")
+        .searchFocus($searchFocused)
+        .searchSuggestions { suggestions }
+        .onSubmit(of: .search) {
+            if let first = model.documents.first { model.openReader(first.id) }
+            gridFocused = true
+        }
+        .onChange(of: model.searchFocusRequest) { searchFocused = true }
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted, perform: handleDrop)
         .focusable()
         .focusEffectDisabled()
@@ -66,6 +76,67 @@ struct LibraryView: View {
             try? await Task.sleep(for: .milliseconds(model.search.isEmpty ? 0 : 280))
             guard !Task.isCancelled, model.phase == .ready else { return }
             await model.reload()
+        }
+    }
+
+    private var readerDocument: Document? { model.document(model.readerID) }
+
+    private var title: String {
+        readerDocument?.title ?? "Ablage"
+    }
+
+    private var subtitle: String {
+        if let doc = readerDocument {
+            return doc.createdDate?.formatted(date: .long, time: .omitted) ?? ""
+        }
+        switch model.phase {
+        case .connecting: return "Verbinde …"
+        case let .failed(message): return message
+        default:
+            if !model.search.isEmpty { return model.totalCount == 1 ? "1 Treffer" : "\(model.totalCount) Treffer" }
+            return model.totalCount == 1 ? "1 Dokument" : "\(model.totalCount) Dokumente"
+        }
+    }
+
+    @ToolbarContentBuilder private var toolbar: some ToolbarContent {
+        if model.readerID != nil {
+            ToolbarItem(placement: .navigation) {
+                Button { model.readerID = nil } label: {
+                    Label("Zurück", systemImage: "chevron.left")
+                }
+                .help("Zurück zur Übersicht (Esc)")
+            }
+        }
+        ToolbarItemGroup(placement: .primaryAction) {
+            Button { model.importFiles() } label: {
+                Label("Importieren", systemImage: "plus")
+            }
+            .help("Importieren (⌘O)")
+            .disabled(model.phase != .ready)
+            Button { Task { await model.share() } } label: {
+                Label("Teilen", systemImage: "square.and.arrow.up")
+            }
+            .help("Teilen (⇧⌘S)")
+            .disabled(model.actionTarget == nil)
+            Button { Task { await model.export() } } label: {
+                Label("Exportieren", systemImage: "square.and.arrow.down")
+            }
+            .help("Exportieren (⌘E)")
+            .disabled(model.actionTarget == nil)
+        }
+    }
+
+    @ViewBuilder private var suggestions: some View {
+        if !model.search.isEmpty {
+            ForEach(model.documents.prefix(6)) { doc in
+                Button {
+                    model.openReader(doc.id)
+                    searchFocused = false
+                    gridFocused = true
+                } label: {
+                    Label(doc.title, systemImage: "doc.text")
+                }
+            }
         }
     }
 
@@ -128,7 +199,7 @@ struct DocumentGrid: View {
                         }
                     }
                     .padding(.horizontal, padding)
-                    .padding(.top, 70)
+                    .padding(.top, 20)
                     .padding(.bottom, 48)
 
                     if model.isLoadingPage && !model.documents.isEmpty {
@@ -136,6 +207,7 @@ struct DocumentGrid: View {
                     }
                 }
                 .scrollContentBackground(.hidden)
+                .softTopScrollEdge()
                 .background {
                     // Klick ins Leere hebt die Auswahl auf.
                     Color.clear.contentShape(Rectangle()).onTapGesture { model.selection = nil }
@@ -163,8 +235,7 @@ private struct EmptyState: View {
                 } else if case let .failed(message) = model.phase {
                     Text(message).foregroundStyle(.secondary)
                     Button("Erneut verbinden") { Task { await model.connect() } }
-                        .buttonStyle(.bordered)
-                        .clipShape(Capsule())
+                        .glassButtonStyle()
                 } else if !model.search.isEmpty {
                     Text("Nichts gefunden für „\(model.search)“").foregroundStyle(.secondary)
                 } else {
@@ -368,184 +439,7 @@ struct FlowLayout: Layout {
     }
 }
 
-// MARK: - Obere Leiste
-
-struct TopBar: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        ZStack {
-            WindowDragArea()
-
-            if let doc = model.document(model.readerID) {
-                VStack(spacing: 1) {
-                    Text(doc.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .lineLimit(1)
-                    if let date = doc.createdDate {
-                        Text(date, format: .dateTime.day(.twoDigits).month(.twoDigits).year())
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(maxWidth: 420)
-                .allowsHitTesting(false)
-                .transition(.opacity)
-            }
-
-            HStack(spacing: 8) {
-                Spacer()
-                if model.phase == .ready {
-                    SearchControl()
-                    HStack(spacing: 0) {
-                        BarButton(symbol: "plus", help: "Importieren") { model.importFiles() }
-                        BarButton(symbol: "square.and.arrow.up", help: "Teilen") { Task { await model.share() } }
-                            .disabled(model.actionTarget == nil)
-                        BarButton(symbol: "square.and.arrow.down", help: "Exportieren") { Task { await model.export() } }
-                            .disabled(model.actionTarget == nil)
-                    }
-                    .padding(.horizontal, 4)
-                    .background(Color.primary.opacity(0.08), in: Capsule())
-                    .background(.regularMaterial, in: Capsule())
-                }
-            }
-            .padding(.trailing, 14)
-        }
-        .frame(height: 52)
-        .background(alignment: .top) {
-            // Weicher Übergang, damit Seiten beim Scrollen unter der Leiste verschwinden.
-            LinearGradient(colors: [Color(nsColor: .windowBackgroundColor), Color(nsColor: .windowBackgroundColor).opacity(0)],
-                           startPoint: .top, endPoint: .bottom)
-                .frame(height: 64)
-                .allowsHitTesting(false)
-        }
-    }
-}
-
-struct BarButton: View {
-    let symbol: String
-    let help: String
-    let action: () -> Void
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 14, weight: .regular))
-                .frame(width: 34, height: 36)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(isEnabled ? .primary : .tertiary)
-        .help(help)
-    }
-}
-
-struct SearchControl: View {
-    @Environment(AppModel.self) private var model
-    @State private var expanded = false
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        @Bindable var model = model
-        Group {
-            if expanded {
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.secondary)
-                    TextField("Suchen", text: $model.search)
-                        .textFieldStyle(.plain)
-                        .focused($focused)
-                        .onSubmit {
-                            if let first = model.documents.first { model.openReader(first.id) }
-                            focused = false
-                        }
-                        .onExitCommand { close() }
-                    if !model.search.isEmpty {
-                        Button { model.search = ""; focused = true } label: {
-                            Image(systemName: "xmark.circle.fill")
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                    }
-                }
-                .font(.system(size: 13))
-                .padding(.horizontal, 11)
-                .frame(width: 270, height: 36)
-                .background(Color.primary.opacity(0.08), in: Capsule())
-                .background(.regularMaterial, in: Capsule())
-                .overlay(alignment: .topLeading) { suggestions }
-                .transition(.scale(scale: 0.4, anchor: .trailing).combined(with: .opacity))
-            } else {
-                Button { open() } label: {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 14))
-                        .frame(width: 36, height: 36)
-                        .background(Color.primary.opacity(0.08), in: Circle())
-                        .background(.regularMaterial, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .help("Suchen (⌘F)")
-            }
-        }
-        .animation(.spring(duration: 0.3, bounce: 0.15), value: expanded)
-        .onChange(of: model.searchFocusRequest) { open() }
-        .onChange(of: focused) { _, isFocused in
-            if !isFocused && model.search.isEmpty { expanded = false }
-        }
-    }
-
-    @ViewBuilder private var suggestions: some View {
-        if focused, !model.search.isEmpty, !model.documents.isEmpty {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(model.documents.prefix(6)) { doc in
-                    Button {
-                        model.openReader(doc.id)
-                        focused = false
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "doc.text").foregroundStyle(.secondary)
-                            Text(doc.title).lineLimit(1)
-                            Spacer(minLength: 0)
-                        }
-                        .font(.system(size: 12))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(SuggestionStyle())
-                }
-            }
-            .padding(5)
-            .frame(width: 270, alignment: .leading)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
-            .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
-            .offset(y: 42)
-        }
-    }
-
-    private func open() {
-        expanded = true
-        focused = true
-    }
-
-    private func close() {
-        model.search = ""
-        focused = false
-        expanded = false
-    }
-}
-
-private struct SuggestionStyle: ButtonStyle {
-    @State private var hovering = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .background(hovering || configuration.isPressed ? Color.primary.opacity(0.1) : .clear,
-                        in: RoundedRectangle(cornerRadius: 6))
-            .onHover { hovering = $0 }
-    }
-}
+// MARK: - Meldungen
 
 struct ToastView: View {
     @Environment(AppModel.self) private var model
@@ -556,7 +450,7 @@ struct ToastView: View {
                 .font(.callout)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(.regularMaterial, in: Capsule())
+                .glassCapsule()
                 .padding(.bottom, 22)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .task(id: text) {

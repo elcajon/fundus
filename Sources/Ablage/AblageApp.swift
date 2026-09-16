@@ -12,7 +12,7 @@ struct AblageApp: App {
                 .environment(model)
                 .frame(minWidth: 640, minHeight: 480)
         }
-        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unified)
         .defaultSize(width: 1280, height: 860)
         .commands { AblageCommands(model: model) }
 
@@ -108,21 +108,4 @@ struct RootView: View {
                 .environment(model)
         }
     }
-}
-
-/// Fläche, an der sich das titellose Fenster verschieben lässt.
-struct WindowDragArea: NSViewRepresentable {
-    final class DragView: NSView {
-        override var mouseDownCanMoveWindow: Bool { true }
-        override func mouseDown(with event: NSEvent) {
-            if event.clickCount == 2 {
-                window?.performZoom(nil)
-            } else {
-                window?.performDrag(with: event)
-            }
-        }
-    }
-
-    func makeNSView(context: Context) -> NSView { DragView() }
-    func updateNSView(_ nsView: NSView, context: Context) {}
 }

@@ -50,13 +50,12 @@ struct OnboardingView: View {
                 .frame(width: 160)
             }
             .controlSize(.large)
-            .buttonStyle(.borderedProminent)
+            .glassButtonStyle(prominent: true)
             .keyboardShortcut(.defaultAction)
             .disabled(server.isEmpty || busy)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background { WindowDragArea() }
-        .ignoresSafeArea()
+
     }
 }
