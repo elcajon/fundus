@@ -24,14 +24,22 @@ Pangolin beantwortet `/api/*` ohne Session mit `401 Unauthorized` (text/plain), 
 
 Läuft die Pangolin-Session ab, öffnet sich das Login-Fenster von selbst wieder.
 
-## Funktionen
+## Bedienung
 
-- Dokumentenraster mit Vorschaubildern, endloses Scrollen, neueste zuerst
-- Seitenleiste mit Eingang, Korrespondenten, Dokumenttypen und Tags (mit Tag-Farben)
-- Volltextsuche über den Paperless-Index, mit hervorgehobenen Treffern
-- Inspektor mit Metadaten und OCR-Text
-- Leser-Fenster (PDFKit) per Doppelklick oder Leertaste, Original speichern, in Paperless öffnen
-- Dateien aufs Fenster ziehen lädt sie in Paperless hoch
-- Tokens nur im Schlüsselbund
+Bewusst minimalistisch, nach dem Vorbild von Papers: ein Fenster ohne Seitenleiste, die Dokumente in ihrem echten Seitenverhältnis.
+
+| | |
+|---|---|
+| Klick | auswählen |
+| Doppelklick, Leertaste, ↩ | lesen (im selben Fenster) |
+| Esc | Lesemodus schließen, Auswahl aufheben |
+| ← → ↑ ↓ | durchs Raster wandern, im Lesemodus ← → zum vorigen/nächsten Dokument |
+| ⌘F | suchen (Volltext über Paperless, Vorschläge unter dem Feld, ↩ öffnet den ersten Treffer) |
+| ⌘+ / ⌘− / ⌘0 | Dokumente größer, kleiner, Ansicht zurücksetzen |
+| ⌘O, Dateien aufs Fenster ziehen | importieren |
+| ⇧⌘S / ⌘E | ausgewähltes Dokument teilen / exportieren (Originaldatei) |
+| ⌘R | neu laden |
+
+In den Einstellungen (⌘,) lassen sich das Erscheinungsbild und die Infos unter den Dokumenten (Typ, Korrespondent, Tags) einstellen. Tokens liegen nur im Schlüsselbund.
 
 Nicht enthalten (anders als Papers): Spotlight-Integration, Offline-Cache, lokaler Suchindex.

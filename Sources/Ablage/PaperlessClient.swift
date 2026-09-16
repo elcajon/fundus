@@ -87,10 +87,11 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
                 throw ClientError.pangolinLoginRequired
             }
         }
-        // Ältere Paperless-Versionen kennen API-Version 9 nicht: ohne Versions-Pin wiederholen.
-        if http.statusCode == 406, req.value(forHTTPHeaderField: "Accept")?.contains("version=") == true {
+        // Paperless kennt API-Version 9 vielleicht nicht, und DRF lehnt manche Accept-Header ab:
+        // dann einmal ohne Einschränkung wiederholen.
+        if http.statusCode == 406, req.value(forHTTPHeaderField: "Accept") != "*/*" {
             var retry = req
-            retry.setValue("application/json", forHTTPHeaderField: "Accept")
+            retry.setValue("*/*", forHTTPHeaderField: "Accept")
             return try await perform(retry)
         }
         if http.statusCode == 401 || http.statusCode == 403 {
@@ -155,7 +156,7 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
 
     func thumbnail(_ id: Int) async throws -> Data {
         var req = request("api/documents/\(id)/thumb/")
-        req.setValue("image/*", forHTTPHeaderField: "Accept")
+        req.setValue("*/*", forHTTPHeaderField: "Accept")
         return try await perform(req)
     }
 

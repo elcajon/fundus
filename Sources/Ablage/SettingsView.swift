@@ -1,6 +1,59 @@
 import SwiftUI
 
 struct SettingsView: View {
+    var body: some View {
+        TabView {
+            GeneralSettings()
+                .tabItem { Label("Allgemein", systemImage: "gearshape") }
+            ConnectionSettings()
+                .tabItem { Label("Verbindung", systemImage: "network") }
+        }
+        .frame(width: 520)
+    }
+}
+
+private struct GeneralSettings: View {
+    @AppStorage(Appearance.key) private var appearance = "system"
+    @AppStorage("showInfo") private var showInfo = true
+    @AppStorage("showType") private var showType = false
+    @AppStorage("showCorrespondent") private var showCorrespondent = true
+    @AppStorage("showTags") private var showTags = true
+
+    var body: some View {
+        Form {
+            Section {
+                Picker("Erscheinungsbild", selection: $appearance) {
+                    Text("Automatisch").tag("system")
+                    Text("Hell").tag("light")
+                    Text("Dunkel").tag("dark")
+                }
+                .pickerStyle(.segmented)
+            } footer: {
+                Text("Automatisch folgt der Einstellung von macOS.").settingsFooter()
+            }
+
+            Section {
+                Toggle("Dokumentinformationen anzeigen", isOn: $showInfo)
+                Group {
+                    Toggle("Dokumenttyp", isOn: $showType)
+                    Toggle("Korrespondent", isOn: $showCorrespondent)
+                    Toggle("Tags", isOn: $showTags)
+                }
+                .disabled(!showInfo)
+                .padding(.leading, 18)
+            } header: {
+                Text("Dokumentraster")
+            } footer: {
+                Text("Titel und Datum, dazu wahlweise Typ, Korrespondent und Tags. Leere Werte bleiben ausgeblendet.").settingsFooter()
+            }
+        }
+        .formStyle(.grouped)
+        .fixedSize(horizontal: false, vertical: true)
+        .onChange(of: appearance, initial: false) { _, value in Appearance.apply(value) }
+    }
+}
+
+private struct ConnectionSettings: View {
     @Environment(AppModel.self) private var model
     @State private var apiToken = ""
     @State private var pangolinID = ""
@@ -8,8 +61,8 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Server") {
-                LabeledContent("Adresse", value: model.serverURL?.absoluteString ?? "–")
+            Section {
+                LabeledContent("Server", value: model.serverURL?.host() ?? "–")
                 LabeledContent("Angemeldet als", value: model.profile?.displayName ?? "–")
             }
 
@@ -18,8 +71,7 @@ struct SettingsView: View {
             } header: {
                 Text("Paperless")
             } footer: {
-                Text("Aus Paperless unter Profil → API-Auth-Token. Wird für Uploads gebraucht und im Schlüsselbund gespeichert.")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text("Aus Paperless unter Profil → API-Auth-Token. Wird für Importe gebraucht und im Schlüsselbund gespeichert.").settingsFooter()
             }
 
             Section {
@@ -28,30 +80,34 @@ struct SettingsView: View {
             } header: {
                 Text("Pangolin Access Token (optional)")
             } footer: {
-                Text("Alternative zum SSO-Login, z. B. wenn der Passkey im Anmeldefenster nicht funktioniert. In Pangolin unter Resource → Share Link anlegen. Die App sendet ihn als P-Access-Token-Id/P-Access-Token-Header.")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text("Alternative zum Login-Fenster. In Pangolin unter Resource → Share Link anlegen.").settingsFooter()
             }
 
             HStack {
-                Button("Sichern & neu verbinden") {
+                Button("Abmelden") { Task { await model.signOut() } }
+                Button("Server entfernen", role: .destructive) { Task { await model.forgetServer() } }
+                Spacer()
+                Button("Sichern") {
                     model.apiToken = apiToken
                     model.pangolinTokenID = pangolinID
                     model.pangolinToken = pangolinSecret
                     Task { await model.connect() }
                 }
                 .keyboardShortcut(.defaultAction)
-                Spacer()
-                Button("Abmelden") { Task { await model.signOut() } }
-                Button("Server entfernen", role: .destructive) { Task { await model.forgetServer() } }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 500)
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {
             apiToken = model.apiToken
             pangolinID = model.pangolinTokenID
             pangolinSecret = model.pangolinToken
         }
+    }
+}
+
+private extension Text {
+    func settingsFooter() -> some View {
+        font(.caption).foregroundStyle(.secondary)
     }
 }
