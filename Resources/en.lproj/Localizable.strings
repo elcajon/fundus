@@ -43,7 +43,6 @@
 "Bibliothek" = "Library";
 "Dafür wird ein Paperless-API-Token benötigt (Einstellungen → Verbindung)." = "This needs a Paperless API token (Settings → Connection).";
 "Das sieht nicht nach einer Server-Adresse aus." = "That doesn't look like a server address.";
-"Datei" = "File";
 "Dateien aufs Fenster ziehen oder ⌘O." = "Drop files onto the window or press ⌘O.";
 "Datum" = "Date";
 "Deaktivieren" = "Disable";
@@ -80,7 +79,6 @@
 "Größere Dokumente" = "Larger Documents";
 "Hell" = "Light";
 "Hinzugefügt" = "Added";
-"ID" = "ID";
 "Im Eingang" = "In inbox";
 "Importe anzeigen" = "Show Imports";
 "Importieren" = "Import";
@@ -137,7 +135,6 @@
 "Push aufs iPhone (ntfy)" = "Push to iPhone (ntfy)";
 "Push-Workflow deaktiviert." = "Push workflow disabled.";
 "Push-Workflow in Paperless eingerichtet." = "Push workflow set up in Paperless.";
-"Seiten" = "Pages";
 "Server" = "Server";
 "Server entfernen" = "Remove Server";
 "Serverfehler %lld: %@" = "Server error %lld: %@";

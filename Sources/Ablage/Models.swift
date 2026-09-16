@@ -6,6 +6,19 @@ struct Page<T: Decodable>: Decodable {
     let results: [T]
 }
 
+/// `/api/tasks/` ist je nach Paperless-Version eine einfache Liste oder paginiert.
+struct TaskList: Decodable {
+    let tasks: [TaskStatus]
+
+    init(from decoder: Decoder) throws {
+        if let list = try? [TaskStatus](from: decoder) {
+            tasks = list
+        } else {
+            tasks = try Page<TaskStatus>(from: decoder).results
+        }
+    }
+}
+
 struct Document: Codable, Identifiable, Hashable {
     let id: Int
     var title: String
