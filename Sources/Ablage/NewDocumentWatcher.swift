@@ -8,11 +8,12 @@ import UserNotifications
 /// wird nur die Ausgangslage gemerkt, sonst käme eine Mitteilung für jedes vorhandene Dokument.
 @MainActor
 final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
-    static let enabledKey = "notifyNewDocuments"
-    static let intervalKey = "notifyInterval"
+    nonisolated static let enabledKey = "notifyNewDocuments"
+    nonisolated static let intervalKey = "notifyInterval"
 
     private weak var model: AppModel?
     private var task: Task<Void, Never>?
+    private var isChecking = false
     private let center = UNUserNotificationCenter.current()
     private let defaults = UserDefaults.standard
 
@@ -23,7 +24,7 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
         Self.registerDefaults()
     }
 
-    static func registerDefaults() {
+    nonisolated static func registerDefaults() {
         UserDefaults.standard.register(defaults: [enabledKey: true, intervalKey: 120.0])
     }
 
@@ -50,6 +51,9 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
     private func seenKey(_ client: PaperlessClient) -> String { "lastSeenDocumentID@" + client.baseURL.absoluteString }
 
     func check() async {
+        guard !isChecking else { return }
+        isChecking = true
+        defer { isChecking = false }
         guard let model, model.phase == .ready, let client = model.client else { return }
         let latest: [Document]
         do {
@@ -57,9 +61,11 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
         } catch ClientError.pangolinLoginRequired {
             // Nicht weiter pollen: jede Runde wäre ein 401 für CrowdSec. Einmal Bescheid geben.
             stop()
-            post(id: "session", title: "Ablage", body: "Die Pangolin-Anmeldung ist abgelaufen. Öffne Ablage, um dich neu anzumelden.")
+            post(id: "session", title: "Ablage",
+                 body: String(localized: "Die Pangolin-Anmeldung ist abgelaufen. Öffne Ablage, um dich neu anzumelden."))
             return
         } catch {
+            Log.network.error("Nachsehen nach neuen Dokumenten fehlgeschlagen: \(String(describing: error), privacy: .public)")
             return
         }
 
@@ -75,19 +81,25 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
         defaults.set(maxID, forKey: key)
 
         model.insertNewDocuments(fresh)
+        model.noteNewDocuments(fresh)
+        Task { await model.syncLibrary() }
 
-        if fresh.count > 3 {
-            post(id: "batch-\(maxID)", title: "\(fresh.count) neue Dokumente",
-                 body: fresh.prefix(3).map(\.title).joined(separator: ", ") + " …")
+        // Was Ablage selbst importiert hat, meldet schon der Import.
+        let foreign = fresh.filter { !model.ownImports.contains($0.id) }
+        guard !foreign.isEmpty else { return }
+        if foreign.count > 3 {
+            post(id: "batch-\(maxID)", title: String(localized: "\(foreign.count) neue Dokumente"),
+                 body: foreign.prefix(3).map(\.title).joined(separator: ", ") + " …")
             return
         }
-        for doc in fresh {
+        for doc in foreign {
             let details = [model.correspondentName(doc.correspondent),
                            doc.createdDate?.formatted(date: .abbreviated, time: .omitted)]
                 .compactMap { $0 }.joined(separator: " · ")
             let thumb = await thumbnailFile(for: doc, client: client)
-            post(id: "doc-\(doc.id)", title: doc.title, body: details.isEmpty ? "Neues Dokument" : details,
-                 subtitle: "Neues Dokument", documentID: doc.id, attachment: thumb)
+            post(id: "doc-\(doc.id)", title: doc.title,
+                 body: details.isEmpty ? String(localized: "Neues Dokument") : details,
+                 subtitle: String(localized: "Neues Dokument"), documentID: doc.id, attachment: thumb)
         }
     }
 
@@ -96,7 +108,7 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
         guard let model, let image = await model.thumbnails.image(for: doc.id, client: client),
               let tiff = image.tiffRepresentation,
               let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else { return nil }
-        let url = FileManager.default.temporaryDirectory.appending(path: "ablage-notify-\(doc.id).png")
+        let url = TempFiles.directory.appending(path: "notify-\(doc.id).png")
         do {
             try png.write(to: url)
             return url
@@ -134,7 +146,7 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
             if !NSApp.windows.contains(where: { $0.canBecomeMain && $0.isVisible }) {
                 self.model?.openMainWindow?()
             }
-            if let id, let model = self.model { Task { await model.openFromNotification(id) } }
+            if let id, let model = self.model { Task { await model.open(documentID: id) } }
         }
     }
 }

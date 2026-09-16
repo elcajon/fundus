@@ -1,20 +1,78 @@
 import Foundation
 
-enum ClientError: LocalizedError {
+enum ClientError: LocalizedError, Equatable {
     case notConfigured
     /// Pangolin (badger) hat die Anfrage abgefangen, bevor sie Paperless erreicht hat.
     case pangolinLoginRequired
     /// Pangolin hat durchgelassen, aber Paperless kennt uns nicht.
     case paperlessUnauthorized
+    /// Schreibende Aufrufe brauchen den API-Token (Session-Auth verlangt sonst CSRF).
+    case tokenRequired
     case http(Int, String)
 
     var errorDescription: String? {
         switch self {
-        case .notConfigured: "Noch kein Server eingerichtet."
-        case .pangolinLoginRequired: "Pangolin verlangt eine Anmeldung."
-        case .paperlessUnauthorized: "Paperless hat die Anmeldung abgelehnt. API-Token prüfen."
-        case let .http(code, body): "HTTP \(code): \(body.prefix(200))"
+        case .notConfigured:
+            String(localized: "Noch kein Server eingerichtet.")
+        case .pangolinLoginRequired:
+            String(localized: "Pangolin verlangt eine Anmeldung.")
+        case .paperlessUnauthorized:
+            String(localized: "Paperless hat die Anmeldung abgelehnt. API-Token prüfen.")
+        case .tokenRequired:
+            String(localized: "Dafür wird ein Paperless-API-Token benötigt (Einstellungen → Verbindung).")
+        case let .http(code, body):
+            String(localized: "Serverfehler \(code): \(ClientError.shortDetail(body))")
         }
+    }
+
+    /// Paperless verpackt Fehler meist als `{"detail": "…"}` oder `{"feld": ["…"]}`.
+    static func shortDetail(_ body: String) -> String {
+        if let data = body.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) {
+            if let dict = json as? [String: Any] {
+                if let detail = dict["detail"] as? String { return detail }
+                let parts = dict.compactMap { key, value -> String? in
+                    if let list = value as? [String] { return "\(key): \(list.joined(separator: ", "))" }
+                    if let text = value as? String { return "\(key): \(text)" }
+                    return nil
+                }
+                if !parts.isEmpty { return parts.sorted().joined(separator: "; ") }
+            }
+        }
+        return String(body.prefix(200))
+    }
+}
+
+/// Wie eine Antwort zu verstehen ist. Getrennt von der Netzwerkschicht, damit sie testbar bleibt.
+enum ResponseKind: Equatable {
+    case ok
+    case pangolinLogin
+    case paperlessUnauthorized
+    case retryWithAnyAccept
+    case failure(Int)
+
+    static func classify(status: Int, contentType: String, location: String?, requestURL: URL?,
+                         host: String, accept: String?) -> ResponseKind {
+        if (300..<400).contains(status) {
+            // Relative Redirects (Django-Slash-Korrekturen) gehören zu Paperless, nicht zu Pangolin.
+            let location = location ?? ""
+            let target = URL(string: location, relativeTo: requestURL)?.absoluteURL
+            if location.contains("/auth/resource/") || target?.host() != host {
+                return .pangolinLogin
+            }
+            return .failure(status)
+        }
+        // Paperless kennt die API-Version vielleicht nicht, und DRF lehnt manche Accept-Header ab:
+        // dann einmal ohne Einschränkung wiederholen.
+        if status == 406, accept != "*/*" { return .retryWithAnyAccept }
+        if status == 401 || status == 403 {
+            // badger antwortet mit text/plain "Unauthorized", Paperless immer mit JSON.
+            return contentType.contains("json") ? .paperlessUnauthorized : .pangolinLogin
+        }
+        guard (200..<300).contains(status) else { return .failure(status) }
+        // Wenn Pangolin doch eine HTML-Seite mit 200 ausliefert (z. B. Anmelde- oder Wartungsseite).
+        if contentType.contains("text/html"), accept?.contains("json") == true { return .pangolinLogin }
+        return .ok
     }
 }
 
@@ -22,13 +80,19 @@ enum ClientError: LocalizedError {
 ///
 /// Durch Pangolin kommen wir mit dem Resource-Session-Cookie (`p_session_token`), das der
 /// Login-Dialog aus dem WebView in `HTTPCookieStorage.shared` kopiert. Paperless selbst
-/// authentifiziert per `Authorization: Token …`, ersatzweise über sein eigenes Session-Cookie.
+/// authentifiziert per `Authorization: Token …` (wird vor der Session geprüft, also ohne CSRF),
+/// ersatzweise über sein eigenes Session-Cookie.
+///
+/// Hinweis: DELETE ohne Body wird von CrowdSec auf dem Pangolin-Stack über HTTP/3 geblockt.
+/// Die App löscht deshalb nichts per DELETE, sondern deaktiviert z. B. Workflows per PATCH.
 final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     let baseURL: URL
     var token: String?
     /// Optionaler Pangolin-Access-Token als Alternative zum SSO-Cookie.
     var pangolinTokenID: String?
     var pangolinToken: String?
+    /// Paperless-Version aus dem `X-Version`-Header, z. B. "2.18.4".
+    private(set) var serverVersion: String?
 
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.default
@@ -37,7 +101,7 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         config.httpCookieAcceptPolicy = .always
         config.httpMaximumConnectionsPerHost = 6
         config.timeoutIntervalForRequest = 60
-        config.urlCache = URLCache(memoryCapacity: 64 << 20, diskCapacity: 512 << 20)
+        config.urlCache = URLCache(memoryCapacity: 32 << 20, diskCapacity: 256 << 20)
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()
 
@@ -47,6 +111,7 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
     }
 
     var host: String { baseURL.host() ?? "" }
+    var hasToken: Bool { token?.isEmpty == false }
 
     // Redirects auf fremde Hosts (Pangolin-Login unter proxy.…) nicht folgen, sonst
     // landet deren HTML-Seite als "Antwort" im JSON-Decoder.
@@ -74,72 +139,71 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         return req
     }
 
+    private func validate(_ data: Data, _ response: URLResponse, for req: URLRequest) throws -> ResponseKind {
+        guard let http = response as? HTTPURLResponse else { return .ok }
+        if let version = http.value(forHTTPHeaderField: "X-Version") { serverVersion = version }
+        let kind = ResponseKind.classify(
+            status: http.statusCode,
+            contentType: http.value(forHTTPHeaderField: "Content-Type") ?? "",
+            location: http.value(forHTTPHeaderField: "Location"),
+            requestURL: req.url,
+            host: host,
+            accept: req.value(forHTTPHeaderField: "Accept")
+        )
+        let path = req.url?.path() ?? ""
+        switch kind {
+        case .ok, .retryWithAnyAccept:
+            return kind
+        case .pangolinLogin:
+            Log.network.info("\(req.httpMethod ?? "", privacy: .public) \(path, privacy: .public): Pangolin verlangt Anmeldung")
+            throw ClientError.pangolinLoginRequired
+        case .paperlessUnauthorized:
+            Log.network.error("\(req.httpMethod ?? "", privacy: .public) \(path, privacy: .public): Paperless \(http.statusCode) \(String(decoding: data.prefix(300), as: UTF8.self), privacy: .public)")
+            throw ClientError.paperlessUnauthorized
+        case let .failure(code):
+            let body = String(decoding: data, as: UTF8.self)
+            Log.network.error("\(req.httpMethod ?? "", privacy: .public) \(path, privacy: .public): HTTP \(code) \(body.prefix(300), privacy: .public)")
+            throw ClientError.http(code, body)
+        }
+    }
+
     private func perform(_ req: URLRequest) async throws -> Data {
         let (data, response) = try await session.data(for: req)
-        guard let http = response as? HTTPURLResponse else { return data }
-        let type = http.value(forHTTPHeaderField: "Content-Type") ?? ""
-
-        if (300..<400).contains(http.statusCode) {
-            // Relative Redirects (Django-Slash-Korrekturen) gehören zu Paperless, nicht zu Pangolin.
-            let location = http.value(forHTTPHeaderField: "Location") ?? ""
-            let target = URL(string: location, relativeTo: req.url)?.absoluteURL
-            if location.contains("/auth/resource/") || target?.host() != host {
-                throw ClientError.pangolinLoginRequired
-            }
-        }
-        // Paperless kennt API-Version 9 vielleicht nicht, und DRF lehnt manche Accept-Header ab:
-        // dann einmal ohne Einschränkung wiederholen.
-        if http.statusCode == 406, req.value(forHTTPHeaderField: "Accept") != "*/*" {
+        if try validate(data, response, for: req) == .retryWithAnyAccept {
             var retry = req
             retry.setValue("*/*", forHTTPHeaderField: "Accept")
             return try await perform(retry)
-        }
-        if http.statusCode == 401 || http.statusCode == 403 {
-            // badger antwortet mit text/plain "Unauthorized", Paperless immer mit JSON.
-            throw type.contains("json") ? ClientError.paperlessUnauthorized : ClientError.pangolinLoginRequired
-        }
-        guard (200..<300).contains(http.statusCode) else {
-            throw ClientError.http(http.statusCode, String(decoding: data, as: UTF8.self))
-        }
-        // Wenn Pangolin doch eine HTML-Seite mit 200 ausliefert (z. B. Wartungsmodus).
-        if type.contains("text/html"), req.value(forHTTPHeaderField: "Accept")?.contains("json") == true {
-            throw ClientError.pangolinLoginRequired
         }
         return data
     }
 
     private func get<T: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> T {
         let data = try await perform(request(path, query: query))
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            Log.network.error("GET \(path, privacy: .public): Antwort nicht lesbar: \(String(describing: error), privacy: .public)")
+            throw error
+        }
+    }
+
+    private func send<Body: Encodable, T: Decodable>(_ method: String, _ path: String, body: Body) async throws -> T {
+        guard hasToken else { throw ClientError.tokenRequired }
+        var req = request(path, method: method)
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(body)
+        let data = try await perform(req)
         return try JSONDecoder().decode(T.self, from: data)
     }
 
-    // MARK: - API
+    // MARK: - Lesen
 
     func profile() async throws -> Profile {
         try await get("api/profile/")
     }
 
-    func documents(page: Int, filter: SidebarItem, search: String, pageSize: Int = 60) async throws -> Page<Document> {
-        var q: [URLQueryItem] = [
-            .init(name: "page", value: String(page)),
-            .init(name: "page_size", value: String(pageSize)),
-            .init(name: "truncate_content", value: "true"),
-        ]
-        let trimmed = search.trimmingCharacters(in: .whitespaces)
-        if trimmed.isEmpty {
-            q.append(.init(name: "ordering", value: "-created"))
-        } else {
-            // Volltextsuche über den Whoosh-Index von Paperless, sortiert nach Relevanz.
-            q.append(.init(name: "query", value: trimmed))
-        }
-        switch filter {
-        case .all: break
-        case .inbox: q.append(.init(name: "is_in_inbox", value: "true"))
-        case let .tag(id): q.append(.init(name: "tags__id__all", value: String(id)))
-        case let .correspondent(id): q.append(.init(name: "correspondent__id", value: String(id)))
-        case let .documentType(id): q.append(.init(name: "document_type__id", value: String(id)))
-        }
-        return try await get("api/documents/", query: q)
+    func documents(_ query: DocumentQuery, page: Int, pageSize: Int = 60) async throws -> Page<Document> {
+        try await get("api/documents/", query: query.queryItems(page: page, pageSize: pageSize))
     }
 
     /// Die zuletzt hinzugefügten Dokumente, unabhängig von Suche und Ansicht.
@@ -152,9 +216,31 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         return page.results
     }
 
+    /// Eine Seite der vollständigen Bibliothek mit Text, für Offline-Kopie und Spotlight.
+    func libraryPage(page: Int, modifiedAfter: String?, pageSize: Int = 100) async throws -> Page<Document> {
+        var query: [URLQueryItem] = [
+            .init(name: "page", value: String(page)),
+            .init(name: "page_size", value: String(pageSize)),
+            .init(name: "ordering", value: "id"),
+            .init(name: "fields", value: "id,title,correspondent,document_type,tags,created,added,modified,content,page_count,original_file_name"),
+        ]
+        if let modifiedAfter { query.append(.init(name: "modified__gt", value: modifiedAfter)) }
+        return try await get("api/documents/", query: query)
+    }
+
+    /// Nur die IDs aller Dokumente, um Gelöschtes zu erkennen.
+    func allDocumentIDs() async throws -> [Int] {
+        struct IDs: Decodable { let all: [Int]? }
+        let page: IDs = try await get("api/documents/", query: [
+            .init(name: "page_size", value: "1"),
+            .init(name: "fields", value: "id"),
+        ])
+        return page.all ?? []
+    }
+
     func allNamed(_ endpoint: String) async throws -> [NamedItem] {
         let page: Page<NamedItem> = try await get("api/\(endpoint)/", query: [
-            .init(name: "page_size", value: "1000"),
+            .init(name: "page_size", value: "100000"),
             .init(name: "ordering", value: "name"),
         ])
         return page.results
@@ -164,43 +250,167 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         try await get("api/documents/\(id)/")
     }
 
-    func thumbnail(_ id: Int) async throws -> Data {
-        var req = request("api/documents/\(id)/thumb/")
+    private func binary(_ path: String, query: [URLQueryItem] = []) async throws -> Data {
+        var req = request(path, query: query)
         req.setValue("*/*", forHTTPHeaderField: "Accept")
         return try await perform(req)
+    }
+
+    func thumbnail(_ id: Int) async throws -> Data {
+        try await binary("api/documents/\(id)/thumb/")
     }
 
     func preview(_ id: Int) async throws -> Data {
-        var req = request("api/documents/\(id)/preview/")
-        req.setValue("*/*", forHTTPHeaderField: "Accept")
-        return try await perform(req)
+        try await binary("api/documents/\(id)/preview/")
     }
 
     func download(_ id: Int, original: Bool) async throws -> Data {
-        var req = request("api/documents/\(id)/download/",
-                          query: original ? [.init(name: "original", value: "true")] : [])
-        req.setValue("*/*", forHTTPHeaderField: "Accept")
-        return try await perform(req)
+        try await binary("api/documents/\(id)/download/", query: original ? [.init(name: "original", value: "true")] : [])
     }
 
-    /// Lädt eine Datei in den Consume-Workflow hoch. Braucht den API-Token, weil Paperless
-    /// bei reiner Session-Auth für POST ein CSRF-Token verlangt.
-    func upload(fileURL: URL) async throws {
-        guard token?.isEmpty == false else { throw ClientError.paperlessUnauthorized }
+    func task(_ taskID: String) async throws -> TaskStatus? {
+        let list: [TaskStatus] = try await get("api/tasks/", query: [.init(name: "task_id", value: taskID)])
+        return list.first
+    }
+
+    // MARK: - Schreiben
+
+    func update(_ id: Int, _ update: DocumentUpdate) async throws -> Document {
+        try await send("PATCH", "api/documents/\(id)/", body: update)
+    }
+
+    /// Lädt eine Datei in den Consume-Workflow hoch und gibt die Task-ID zurück.
+    /// Der Body wird als Datei gestreamt, damit große Scans nicht komplett im Speicher landen.
+    func upload(fileURL: URL) async throws -> String {
+        guard hasToken else { throw ClientError.tokenRequired }
         let boundary = "Ablage-\(UUID().uuidString)"
         var req = request("api/documents/post_document/", method: "POST")
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
-        let fileData = try Data(contentsOf: fileURL)
-        var body = Data()
-        body.append("--\(boundary)\r\n")
-        body.append("Content-Disposition: form-data; name=\"document\"; filename=\"\(fileURL.lastPathComponent)\"\r\n")
-        body.append("Content-Type: application/octet-stream\r\n\r\n")
-        body.append(fileData)
-        body.append("\r\n--\(boundary)--\r\n")
+        let bodyURL = TempFiles.directory.appending(path: "upload-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: bodyURL) }
+        try Self.writeMultipartBody(to: bodyURL, file: fileURL, boundary: boundary)
 
-        req.httpBody = body
-        _ = try await perform(req)
+        let (data, response) = try await session.upload(for: req, fromFile: bodyURL)
+        _ = try validate(data, response, for: req)
+        // Paperless antwortet mit der Task-ID als JSON-String (v10: als Objekt).
+        if let id = try? JSONDecoder().decode(String.self, from: data) { return id }
+        struct Wrapped: Decodable { let task_id: String }
+        return try JSONDecoder().decode(Wrapped.self, from: data).task_id
+    }
+
+    static func writeMultipartBody(to target: URL, file: URL, boundary: String) throws {
+        FileManager.default.createFile(atPath: target.path(), contents: nil)
+        let out = try FileHandle(forWritingTo: target)
+        defer { try? out.close() }
+        let name = file.lastPathComponent.replacingOccurrences(of: "\"", with: "'")
+        try out.write(contentsOf: Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"document\"; filename=\"\(name)\"\r\nContent-Type: application/octet-stream\r\n\r\n".utf8))
+        let input = try FileHandle(forReadingFrom: file)
+        defer { try? input.close() }
+        while let chunk = try input.read(upToCount: 1 << 20), !chunk.isEmpty {
+            try out.write(contentsOf: chunk)
+        }
+        try out.write(contentsOf: Data("\r\n--\(boundary)--\r\n".utf8))
+    }
+
+    // MARK: - Workflows (Push-Benachrichtigung)
+
+    struct WorkflowSummary: Decodable {
+        let id: Int
+        let name: String
+        let enabled: Bool
+    }
+
+    func workflows() async throws -> [WorkflowSummary] {
+        let page: Page<WorkflowSummary> = try await get("api/workflows/", query: [.init(name: "page_size", value: "1000")])
+        return page.results
+    }
+
+    struct PushWorkflow: Encodable {
+        let name: String
+        let enabled: Bool
+        let order: Int
+        let triggers: [Trigger]
+        let actions: [Action]
+
+        struct Trigger: Encodable {
+            let type = 2 // Dokument hinzugefügt
+            let sources = [1, 2, 3, 4]
+            let filter_filename = ""
+            let matching_algorithm = 0
+            let match = ""
+            let is_insensitive = true
+        }
+
+        struct Action: Encodable {
+            let type = 4 // Webhook
+            let webhook: Webhook
+        }
+
+        struct Webhook: Encodable {
+            let url: String
+            let use_params = false
+            let as_json = false
+            let params: [String: String]? = nil
+            let body: String
+            let headers: [String: String]
+            let include_document = false
+        }
+    }
+
+    /// Paperless ersetzt Platzhalter seit 2.16 per Jinja (`{{ doc_title }}`), davor per `str.format`.
+    static func usesJinjaTemplates(version: String?) -> Bool {
+        guard let version else { return true }
+        let parts = version.split(separator: ".").compactMap { Int($0.prefix { $0.isNumber }) }
+        guard parts.count >= 2 else { return true }
+        return parts[0] > 2 || (parts[0] == 2 && parts[1] >= 16)
+    }
+
+    /// Die Webhook-Aktion für ntfy.
+    ///
+    /// Mit Jinja wird als JSON an die ntfy-Wurzel gesendet: Titel, Text und Link lassen sich dann
+    /// mit Platzhaltern füllen, und `tojson` schützt vor Anführungszeichen im Dokumenttitel.
+    /// Ältere Versionen ersetzen Platzhalter nur im Body, also bleibt es dort bei Klartext.
+    static func pushWebhook(server: URL, topic: String, paperlessURL: URL, jinja: Bool) -> PushWorkflow.Webhook {
+        let details = paperlessURL.appending(path: "documents").absoluteString
+        if jinja {
+            let body = """
+            {"topic": \(jsonString(topic)), "title": "Neues Dokument", \
+            "message": {{ (doc_title ~ ((" · " ~ correspondent) if correspondent else "")) | tojson }}, \
+            "click": "\(details)/{{ doc_id }}/details", "tags": ["page_facing_up"]}
+            """
+            return .init(url: server.absoluteString, body: body, headers: [:])
+        }
+        return .init(url: server.appending(path: topic).absoluteString,
+                     body: "{doc_title}",
+                     headers: ["Title": "Neues Dokument", "Tags": "page_facing_up", "Click": paperlessURL.absoluteString])
+    }
+
+    private static func jsonString(_ value: String) -> String {
+        let data = (try? JSONEncoder().encode(value)) ?? Data("\"\"".utf8)
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    /// Legt den ntfy-Workflow an oder aktualisiert ihn (erkannt am Namen).
+    func upsertPushWorkflow(name: String, server: URL, topic: String) async throws {
+        if serverVersion == nil { _ = try? await profile() }
+        let webhook = Self.pushWebhook(server: server, topic: topic, paperlessURL: baseURL,
+                                       jinja: Self.usesJinjaTemplates(version: serverVersion))
+        let workflow = PushWorkflow(name: name, enabled: true, order: 100,
+                                    triggers: [.init()], actions: [.init(webhook: webhook)])
+        struct Created: Decodable { let id: Int }
+        if let existing = try await workflows().first(where: { $0.name == name }) {
+            let _: Created = try await send("PUT", "api/workflows/\(existing.id)/", body: workflow)
+        } else {
+            let _: Created = try await send("POST", "api/workflows/", body: workflow)
+        }
+    }
+
+    func setWorkflowEnabled(name: String, enabled: Bool) async throws {
+        guard let existing = try await workflows().first(where: { $0.name == name }) else { return }
+        struct Toggle: Encodable { let enabled: Bool }
+        struct Created: Decodable { let id: Int }
+        let _: Created = try await send("PATCH", "api/workflows/\(existing.id)/", body: Toggle(enabled: enabled))
     }
 
     func webURL(for id: Int) -> URL {
@@ -208,8 +418,21 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
     }
 }
 
-private extension Data {
-    mutating func append(_ string: String) {
-        append(Data(string.utf8))
+/// Ein gemeinsamer Temp-Ordner, der beim Start geleert wird.
+enum TempFiles {
+    static let directory: URL = {
+        let url = FileManager.default.temporaryDirectory.appending(path: "Ablage", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }()
+
+    static func cleanUp() {
+        let fm = FileManager.default
+        guard let items = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return }
+        for item in items { try? fm.removeItem(at: item) }
+    }
+
+    static func contains(_ url: URL) -> Bool {
+        url.standardizedFileURL.path().hasPrefix(directory.standardizedFileURL.path())
     }
 }

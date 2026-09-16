@@ -10,6 +10,9 @@ if ! xcode-select -p | grep -q Xcode.app; then
   [[ -n "$sdk" ]] && export SDKROOT="$sdk"
 fi
 
+# Übersetzungen prüfen: bricht ab, wenn ein neuer Text keine englische Fassung hat.
+python3 scripts/make-strings.py
+
 swift build -c release
 bin=$(swift build -c release --show-bin-path)/Ablage
 
@@ -38,6 +41,17 @@ cat > "$app/Contents/Info.plist" <<PLIST
   <key>CFBundleShortVersionString</key><string>$version</string>
   <key>CFBundleVersion</key><string>$version</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundleDevelopmentRegion</key><string>de</string>
+  <key>CFBundleLocalizations</key>
+  <array><string>de</string><string>en</string></array>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key><string>de.max-venz.ablage.document</string>
+      <key>CFBundleURLSchemes</key><array><string>ablage</string></array>
+    </dict>
+  </array>
+  <key>NSHumanReadableCopyright</key><string>Max Venz</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
   <key>NSHighResolutionCapable</key><true/>
@@ -49,6 +63,7 @@ PLIST
 if [[ -f Resources/AppIcon.icns ]]; then
   cp Resources/AppIcon.icns "$app/Contents/Resources/"
 fi
+cp -R Resources/*.lproj "$app/Contents/Resources/"
 
 # Signieren mit einer eigenen, stabilen Identität. Bei einer Ad-hoc-Signatur ändert sich der
 # Code-Hash mit jedem Build, und der Schlüsselbund fragt dann jedes Mal neu nach dem Passwort.
@@ -91,5 +106,6 @@ CNF
   rm -rf "$tmp"
 fi
 security unlock-keychain -p "$(<"$signing/password")" "$kc"
-codesign --force --deep --keychain "$kc" --sign "$identity" "$app"
+# Hardened Runtime: kein nachgeladener fremder Code, keine Debugger-Anbindung von außen.
+codesign --force --deep --options runtime --keychain "$kc" --sign "$identity" "$app"
 echo "Fertig: $PWD/$app"

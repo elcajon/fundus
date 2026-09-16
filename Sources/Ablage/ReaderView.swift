@@ -46,24 +46,43 @@ struct ReaderView: View {
     }
 
     private func load() async {
-        guard let client = model.client else { error = "Keine Verbindung."; return }
-        placeholder = await model.thumbnails.image(for: documentID, client: client)
+        placeholder = await model.thumbnails.image(for: documentID, client: model.client)
+        let store = model.store
+        // Schon einmal geöffnet: sofort aus der lokalen Kopie zeigen.
+        if let cached = store?.preview(documentID), show(cached) {
+            return
+        }
+        guard let client = model.client, model.phase == .ready else {
+            error = String(localized: "Offline, und dieses Dokument wurde noch nicht geöffnet.")
+            return
+        }
         do {
             let data = try await client.preview(documentID)
-            if let doc = PDFDocument(data: data) {
-                pdf = doc
-            } else if let img = NSImage(data: data) {
-                image = img
+            if show(data) {
+                await store?.storePreview(data, for: documentID)
             } else {
-                error = "Diese Vorschau kann ich nicht anzeigen."
+                error = String(localized: "Diese Vorschau kann ich nicht anzeigen.")
             }
         } catch ClientError.pangolinLoginRequired {
-            model.loginHint = "Die Pangolin-Session ist abgelaufen. Bitte neu anmelden."
+            model.loginHint = String(localized: "Die Pangolin-Session ist abgelaufen. Bitte neu anmelden.")
             model.showLogin = true
-            error = "Anmeldung bei Pangolin erforderlich."
+            error = String(localized: "Anmeldung bei Pangolin erforderlich.")
         } catch {
+            Log.network.error("Vorschau \(documentID) nicht geladen: \(String(describing: error), privacy: .public)")
             self.error = error.localizedDescription
         }
+    }
+
+    private func show(_ data: Data) -> Bool {
+        if let doc = PDFDocument(data: data) {
+            pdf = doc
+            return true
+        }
+        if let img = NSImage(data: data) {
+            image = img
+            return true
+        }
+        return false
     }
 }
 
