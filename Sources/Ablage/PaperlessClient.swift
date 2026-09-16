@@ -123,10 +123,18 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
 
     // MARK: - Requests
 
+    /// URLComponents lässt `+` stehen, Django liest es als Leerzeichen (z. B. in `+02:00`).
+    static func url(base: URL, path: String, query: [URLQueryItem]) -> URL {
+        var components = URLComponents(url: base.appending(path: path), resolvingAgainstBaseURL: false)!
+        if !query.isEmpty {
+            components.queryItems = query
+            components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        }
+        return components.url!
+    }
+
     private func request(_ path: String, query: [URLQueryItem] = [], method: String = "GET") -> URLRequest {
-        var components = URLComponents(url: baseURL.appending(path: path), resolvingAgainstBaseURL: false)!
-        if !query.isEmpty { components.queryItems = query }
-        var req = URLRequest(url: components.url!)
+        var req = URLRequest(url: Self.url(base: baseURL, path: path, query: query))
         req.httpMethod = method
         req.setValue("application/json; version=9", forHTTPHeaderField: "Accept")
         if let token, !token.isEmpty {
@@ -269,8 +277,8 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
     }
 
     func task(_ taskID: String) async throws -> TaskStatus? {
-        let list: [TaskStatus] = try await get("api/tasks/", query: [.init(name: "task_id", value: taskID)])
-        return list.first
+        let list: TaskList = try await get("api/tasks/", query: [.init(name: "task_id", value: taskID)])
+        return list.tasks.first
     }
 
     // MARK: - Schreiben

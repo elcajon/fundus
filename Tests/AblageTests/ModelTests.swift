@@ -53,6 +53,15 @@ struct DecodingTests {
         #expect(task.relatedDocument == 12)
     }
 
+    @Test(arguments: [
+        #"[{"task_id": "abc", "status": "SUCCESS", "related_document": 5}]"#,
+        #"{"count": 1, "next": null, "results": [{"task_id": "abc", "status": "SUCCESS", "related_document": 5}]}"#,
+    ])
+    func taskListShapes(json: String) throws {
+        let list = try JSONDecoder().decode(TaskList.self, from: Data(json.utf8))
+        #expect(list.tasks.first?.relatedDocument == 5)
+    }
+
     @Test func pendingTask() throws {
         let json = #"{"task_id": "abc", "status": "STARTED", "related_document": null}"#
         let task = try JSONDecoder().decode(TaskStatus.self, from: Data(json.utf8))
@@ -195,14 +204,16 @@ struct SpotlightTests {
 
 @Suite("Lokale Kopie")
 struct LibraryStoreTests {
+    let base = FileManager.default.temporaryDirectory.appending(path: "AblageTests-\(UUID().uuidString)")
+
     func doc(_ id: Int, content: String?, modified: String) -> Document {
         Document(id: id, title: "D\(id)", correspondent: nil, documentType: nil, tags: [], created: "2026-01-0\(id)",
                  added: nil, modified: modified, content: content, pageCount: nil, originalFileName: nil, searchHit: nil)
     }
 
     @Test func upsertKeepsFullTextAndTracksModified() async {
-        let store = LibraryStore(host: "test-\(UUID().uuidString)")
-        defer { Task { await store.clear() } }
+        let store = LibraryStore(host: "test", baseDirectory: base)
+        defer { try? FileManager.default.removeItem(at: base) }
         await store.upsert([doc(1, content: "vollständiger langer Text", modified: "2026-01-01")], lastModified: "2026-01-01")
         // Gekürzte Listenantwort mit gleichem Stand überschreibt den vollen Text nicht.
         await store.upsert([doc(1, content: "voll…", modified: "2026-01-01")], lastModified: nil)
@@ -212,8 +223,8 @@ struct LibraryStoreTests {
     }
 
     @Test func retainRemovesDeleted() async {
-        let store = LibraryStore(host: "test-\(UUID().uuidString)")
-        defer { Task { await store.clear() } }
+        let store = LibraryStore(host: "test", baseDirectory: base)
+        defer { try? FileManager.default.removeItem(at: base) }
         await store.upsert([doc(1, content: nil, modified: "a"), doc(2, content: nil, modified: "a")], lastModified: "a")
         let removed = await store.retainOnly([2])
         #expect(removed == [1])

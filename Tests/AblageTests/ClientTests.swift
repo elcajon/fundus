@@ -63,6 +63,17 @@ struct ResponseKindTests {
     }
 }
 
+@Suite("URLs")
+struct URLTests {
+    @Test("Plus in Zeitstempeln wird kodiert")
+    func plusIsEncoded() {
+        let url = PaperlessClient.url(base: URL(string: "https://p.example/")!, path: "api/documents/",
+                                      query: [.init(name: "modified__gt", value: "2026-09-16T22:43:00+02:00"),
+                                              .init(name: "query", value: "a b")])
+        #expect(url.absoluteString == "https://p.example/api/documents/?modified__gt=2026-09-16T22:43:00%2B02:00&query=a%20b")
+    }
+}
+
 @Suite("Fehlermeldungen")
 struct ClientErrorTests {
     @Test func detailField() {

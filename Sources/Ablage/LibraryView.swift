@@ -35,7 +35,7 @@ struct LibraryView: View {
         .overlay(alignment: .bottom) { ToastView() }
         .inspector(isPresented: $model.showInspector) {
             DocumentInspector()
-                .inspectorColumnWidth(min: 260, ideal: 300, max: 400)
+                .inspectorColumnWidth(min: 280, ideal: 320, max: 420)
         }
         .navigationTitle(title)
         .navigationSubtitle(subtitle)

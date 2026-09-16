@@ -27,9 +27,10 @@ actor LibraryStore {
     /// Text pro Dokument begrenzen, damit Kopie und Spotlight-Index handlich bleiben.
     static let contentLimit = 50_000
 
-    init(host: String) {
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        root = caches.appending(path: "de.max-venz.ablage/\(host)", directoryHint: .isDirectory)
+    init(host: String, baseDirectory: URL? = nil) {
+        let base = baseDirectory
+            ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appending(path: "de.max-venz.ablage")
+        root = base.appending(path: host, directoryHint: .isDirectory)
         for sub in ["thumbs", "previews"] {
             try? FileManager.default.createDirectory(at: root.appending(path: sub), withIntermediateDirectories: true)
         }

@@ -59,6 +59,7 @@ private struct DocumentEditor: View {
             Section("Dokument") {
                 TextField("Titel", text: $draft.title, axis: .vertical)
                     .lineLimit(1...4)
+                    .frame(minWidth: 0)
                 DatePicker("Datum", selection: $draft.created, displayedComponents: .date)
                 Picker("Korrespondent", selection: $draft.correspondent) {
                     Text("Keiner").tag(Int?.none)
@@ -125,15 +126,15 @@ private struct DocumentEditor: View {
 
             Section("Details") {
                 if let added = document.addedDate {
-                    LabeledContent("Hinzugefügt", value: added.formatted(date: .long, time: .omitted))
+                    detail("Hinzugefügt", added.formatted(date: .abbreviated, time: .omitted))
                 }
                 if let pages = document.pageCount {
-                    LabeledContent("Seiten", value: pages.formatted())
+                    detail("Seiten", pages.formatted())
                 }
                 if let file = document.originalFileName {
-                    LabeledContent("Datei", value: file)
+                    detail("Datei", file)
                 }
-                LabeledContent("ID", value: "#\(document.id)")
+                detail("ID", "#\(document.id)")
                 if let url = model.client?.webURL(for: document.id) {
                     Link("In Paperless öffnen", destination: url)
                 }
@@ -146,10 +147,23 @@ private struct DocumentEditor: View {
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                         .lineLimit(40)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// Werte kürzen statt die Spalte zu verbreitern.
+    private func detail(_ label: LocalizedStringKey, _ value: String) -> some View {
+        LabeledContent(label) {
+            Text(value)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(value)
+                .textSelection(.enabled)
+        }
     }
 
     private func save(done: Bool) {
