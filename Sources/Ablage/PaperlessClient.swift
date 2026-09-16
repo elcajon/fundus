@@ -142,6 +142,16 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         return try await get("api/documents/", query: q)
     }
 
+    /// Die zuletzt hinzugefügten Dokumente, unabhängig von Suche und Ansicht.
+    func latestDocuments(count: Int = 25) async throws -> [Document] {
+        let page: Page<Document> = try await get("api/documents/", query: [
+            .init(name: "ordering", value: "-added"),
+            .init(name: "page_size", value: String(count)),
+            .init(name: "truncate_content", value: "true"),
+        ])
+        return page.results
+    }
+
     func allNamed(_ endpoint: String) async throws -> [NamedItem] {
         let page: Page<NamedItem> = try await get("api/\(endpoint)/", query: [
             .init(name: "page_size", value: "1000"),

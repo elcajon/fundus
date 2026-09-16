@@ -63,9 +63,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         Appearance.apply(UserDefaults.standard.string(forKey: Appearance.key))
+        NewDocumentWatcher.registerDefaults()
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    /// Mit aktiven Mitteilungen läuft die App ohne Fenster weiter, ein Klick aufs Dock öffnet es wieder.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        !UserDefaults.standard.bool(forKey: NewDocumentWatcher.enabledKey)
+    }
 }
 
 enum Appearance {
@@ -82,6 +86,7 @@ enum Appearance {
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         @Bindable var model = model
@@ -94,6 +99,10 @@ struct RootView: View {
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
+        .onAppear {
+            // Damit ein Klick auf eine Mitteilung das Fenster auch dann öffnen kann, wenn es zu ist.
+            model.openMainWindow = { openWindow(id: "library") }
+        }
         .sheet(isPresented: $model.showLogin) {
             PangolinLoginSheet()
                 .environment(model)

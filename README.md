@@ -40,6 +40,10 @@ Bewusst minimalistisch, nach dem Vorbild von Papers: ein Fenster ohne Seitenleis
 | ⇧⌘S / ⌘E | ausgewähltes Dokument teilen / exportieren (Originaldatei) |
 | ⌘R | neu laden |
 
+## Mitteilungen bei neuen Dokumenten
+
+Ablage fragt Paperless regelmäßig (Standard: alle 2 Minuten) nach den zuletzt hinzugefügten Dokumenten und meldet neue als macOS-Mitteilung mit Vorschaubild. Ein Klick darauf öffnet das Dokument im Lesemodus, neue Dokumente erscheinen außerdem vorne im Raster. Das funktioniert nur, solange die App läuft. Deshalb bleibt sie mit eingeschalteten Mitteilungen nach dem Schließen des Fensters im Dock. Läuft die Pangolin-Session ab, hört die App mit dem Nachfragen auf (sonst gäbe es eine 401-Serie für CrowdSec) und meldet das einmal.
+
 In den Einstellungen (⌘,) lassen sich das Erscheinungsbild und die Infos unter den Dokumenten (Typ, Korrespondent, Tags) einstellen. Tokens liegen nur im Schlüsselbund.
 
 Nicht enthalten (anders als Papers): Spotlight-Integration, Offline-Cache, lokaler Suchindex.
