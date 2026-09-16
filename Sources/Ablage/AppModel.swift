@@ -47,6 +47,8 @@ final class AppModel {
 
     private(set) var client: PaperlessClient?
     let thumbnails = ThumbnailCache()
+    @ObservationIgnored var openMainWindow: (() -> Void)?
+    @ObservationIgnored private(set) lazy var watcher = NewDocumentWatcher(model: self)
 
     private let defaults = UserDefaults.standard
 
@@ -141,6 +143,7 @@ final class AppModel {
         phase = .ready
         await loadMetadata()
         await reload()
+        watcher.start()
     }
 
     /// Wird vom Login-WebView bei jeder fertig geladenen Seite auf dem Paperless-Host aufgerufen.
@@ -157,6 +160,7 @@ final class AppModel {
     }
 
     func signOut() async {
+        watcher.stop()
         await CookieBridge.clearAll()
         apiToken = ""
         profile = nil
@@ -166,6 +170,7 @@ final class AppModel {
     }
 
     func forgetServer() async {
+        watcher.stop()
         await CookieBridge.clearAll()
         apiToken = ""
         pangolinToken = ""
@@ -321,6 +326,24 @@ final class AppModel {
         } catch {
             toast = error.localizedDescription
         }
+    }
+
+    /// Vom Watcher gemeldete neue Dokumente vorne einsortieren, ohne das Raster neu zu laden.
+    func insertNewDocuments(_ docs: [Document]) {
+        guard search.isEmpty, filter == .all else { return }
+        let known = Set(documents.map(\.id))
+        let fresh = docs.filter { !known.contains($0.id) }.sorted { $0.id > $1.id }
+        guard !fresh.isEmpty else { return }
+        withAnimation(.smooth) { documents.insert(contentsOf: fresh, at: 0) }
+        totalCount += fresh.count
+    }
+
+    /// Öffnet ein Dokument auch dann, wenn es noch nicht im geladenen Raster steckt.
+    func openFromNotification(_ id: Int) async {
+        if document(id) == nil, let client, let doc = try? await client.document(id) {
+            insertNewDocuments([doc])
+        }
+        openReader(id)
     }
 
     // MARK: - Lookups

@@ -18,6 +18,9 @@ private struct GeneralSettings: View {
     @AppStorage("showType") private var showType = false
     @AppStorage("showCorrespondent") private var showCorrespondent = true
     @AppStorage("showTags") private var showTags = true
+    @AppStorage(NewDocumentWatcher.enabledKey) private var notify = true
+    @AppStorage(NewDocumentWatcher.intervalKey) private var interval = 120.0
+    @Environment(AppModel.self) private var model
 
     var body: some View {
         Form {
@@ -46,10 +49,27 @@ private struct GeneralSettings: View {
             } footer: {
                 Text("Titel und Datum, dazu wahlweise Typ, Korrespondent und Tags. Leere Werte bleiben ausgeblendet.").settingsFooter()
             }
+
+            Section {
+                Toggle("Bei neuen Dokumenten benachrichtigen", isOn: $notify)
+                Picker("Nachsehen alle", selection: $interval) {
+                    Text("Minute").tag(60.0)
+                    Text("2 Minuten").tag(120.0)
+                    Text("5 Minuten").tag(300.0)
+                    Text("15 Minuten").tag(900.0)
+                }
+                .disabled(!notify)
+            } header: {
+                Text("Mitteilungen")
+            } footer: {
+                Text("Funktioniert, solange Ablage läuft. Mit eingeschalteten Mitteilungen bleibt die App nach dem Schließen des Fensters im Dock aktiv.").settingsFooter()
+            }
         }
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)
         .onChange(of: appearance, initial: false) { _, value in Appearance.apply(value) }
+        .onChange(of: notify) { model.watcher.start() }
+        .onChange(of: interval) { model.watcher.start() }
     }
 }
 
