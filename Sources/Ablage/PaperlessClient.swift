@@ -80,10 +80,18 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         let type = http.value(forHTTPHeaderField: "Content-Type") ?? ""
 
         if (300..<400).contains(http.statusCode) {
+            // Relative Redirects (Django-Slash-Korrekturen) gehören zu Paperless, nicht zu Pangolin.
             let location = http.value(forHTTPHeaderField: "Location") ?? ""
-            if location.contains("/auth/resource/") || !location.contains(host) {
+            let target = URL(string: location, relativeTo: req.url)?.absoluteURL
+            if location.contains("/auth/resource/") || target?.host() != host {
                 throw ClientError.pangolinLoginRequired
             }
+        }
+        // Ältere Paperless-Versionen kennen API-Version 9 nicht: ohne Versions-Pin wiederholen.
+        if http.statusCode == 406, req.value(forHTTPHeaderField: "Accept")?.contains("version=") == true {
+            var retry = req
+            retry.setValue("application/json", forHTTPHeaderField: "Accept")
+            return try await perform(retry)
         }
         if http.statusCode == 401 || http.statusCode == 403 {
             // badger antwortet mit text/plain "Unauthorized", Paperless immer mit JSON.

@@ -15,7 +15,7 @@ open build/Ablage.app
 
 ## Wie die App durch Pangolin kommt
 
-Pangolin beantwortet `/api/*` ohne Session mit `401 Unauthorized` (text/plain), bevor Paperless die Anfrage überhaupt sieht. Die App regelt das so:
+Pangolin beantwortet `/api/*` ohne Session mit `401 Unauthorized` (text/plain), bevor Paperless die Anfrage überhaupt sieht. Die App regelt das so (Stand 0.1.0: bis zum Login-Fenster getestet, der Weg danach noch nicht end-to-end):
 
 1. **SSO-Login im App-Fenster.** Beim Verbinden öffnet sich ein WebView mit dem Pangolin-Login. Nach der Anmeldung liegt das Resource-Cookie `p_session_token` im persistenten WebKit-Speicher. Die App kopiert es in ihre URLSession und nutzt es nach jedem Neustart wieder.
    - **Passkeys aus dem Schlüsselbund funktionieren in diesem Fenster nicht.** macOS erlaubt WebAuthn in eingebetteten WebViews nur signierten Browsern mit Entitlement. In Pocket-ID deshalb *Alternative Anmeldemöglichkeiten → Mit einem anderen Gerät anmelden* (QR-Code mit dem iPhone) oder *Logincode* nehmen. Das Banner im Login-Fenster hat dafür einen Direktknopf.

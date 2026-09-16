@@ -57,6 +57,15 @@ struct NamedItem: Decodable, Identifiable, Hashable {
         case id, name, color
         case documentCount = "document_count"
     }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        documentCount = try? c.decode(Int.self, forKey: .documentCount)
+        // Bei alten API-Versionen ist color ein Index statt eines Hex-Strings.
+        color = try? c.decode(String.self, forKey: .color)
+    }
 }
 
 struct Profile: Decodable {

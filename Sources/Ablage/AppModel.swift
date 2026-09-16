@@ -13,7 +13,9 @@ final class AppModel {
     }
 
     var phase: Phase = .unconfigured
-    var showLogin = false
+    var showLogin = false {
+        didSet { if showLogin { Task { await thumbnails.setBlocked(true) } } }
+    }
     var loginHint = "Melde dich über Pangolin an. Das Fenster schließt sich, sobald Paperless erreichbar ist."
 
     var serverURL: URL?
@@ -127,6 +129,7 @@ final class AppModel {
             apiToken = token
         }
         showLogin = false
+        await thumbnails.setBlocked(false)
         phase = .ready
         await loadMetadata()
         await reload()
@@ -255,12 +258,25 @@ actor ThumbnailCache {
     private var images: [Int: NSImage] = [:]
     private var inFlight: [Int: Task<NSImage?, Never>] = [:]
 
+    private var blocked = false
+
+    func setBlocked(_ value: Bool) { blocked = value }
+
     func image(for id: Int, client: PaperlessClient) async -> NSImage? {
         if let image = images[id] { return image }
+        // Solange Pangolin eine Anmeldung verlangt, keine 401-Salven erzeugen: CrowdSec wertet
+        // 4xx-Serien aus und sperrt sonst die eigene IP.
+        guard !blocked else { return nil }
         if let task = inFlight[id] { return await task.value }
         let task = Task { () -> NSImage? in
-            guard let data = try? await client.thumbnail(id) else { return nil }
-            return NSImage(data: data)
+            do {
+                return NSImage(data: try await client.thumbnail(id))
+            } catch ClientError.pangolinLoginRequired {
+                self.setBlocked(true)
+                return nil
+            } catch {
+                return nil
+            }
         }
         inFlight[id] = task
         let image = await task.value
