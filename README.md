@@ -11,7 +11,7 @@ Xcode ist nicht nötig, die Command Line Tools reichen:
 open build/Ablage.app
 ```
 
-`build.sh` baut gegen das neueste macOS-26-SDK, weil im 27er-SDK `@State` ein Macro ist, dessen Plugin nur mit Xcode ausgeliefert wird. Das Ergebnis ist ad-hoc signiert. Zum Installieren nach `/Applications` ziehen.
+`build.sh` baut gegen das neueste macOS-26-SDK, weil im 27er-SDK `@State` ein Macro ist, dessen Plugin nur mit Xcode ausgeliefert wird. Das Ergebnis wird mit einem selbst erzeugten Zertifikat signiert, das beim ersten Build in einem eigenen Schlüsselbund unter `.signing/` entsteht (nicht im Repo). So bleibt die Signatur über Builds gleich, und „Immer erlauben“ beim Schlüsselbund-Zugriff gilt dauerhaft. `.signing/` nicht löschen, sonst fragt macOS nach dem nächsten Build wieder. Zum Installieren nach `/Applications` ziehen.
 
 ## Wie die App durch Pangolin kommt
 

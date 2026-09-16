@@ -61,11 +61,27 @@ final class AppModel {
 
     // MARK: - Einstellungen
 
+    // Schlüsselbund-Werte nur einmal lesen: jeder Zugriff kann sonst eine Passwortabfrage auslösen.
+    @ObservationIgnored private var secretCache: [String: String] = [:]
+
+    private func secret(_ account: String) -> String {
+        if let cached = secretCache[account] { return cached }
+        let value = Keychain.token(for: account) ?? ""
+        secretCache[account] = value
+        return value
+    }
+
+    private func setSecret(_ value: String, _ account: String) {
+        guard secretCache[account] != value else { return }
+        secretCache[account] = value
+        Keychain.setToken(value, for: account)
+    }
+
     var apiToken: String {
-        get { serverURL.flatMap { Keychain.token(for: $0.absoluteString) } ?? "" }
+        get { serverURL.map { secret($0.absoluteString) } ?? "" }
         set {
             guard let serverURL else { return }
-            Keychain.setToken(newValue, for: serverURL.absoluteString)
+            setSecret(newValue, serverURL.absoluteString)
             client?.token = newValue
         }
     }
@@ -76,10 +92,10 @@ final class AppModel {
     }
 
     var pangolinToken: String {
-        get { serverURL.flatMap { Keychain.token(for: "pangolin@" + $0.absoluteString) } ?? "" }
+        get { serverURL.map { secret("pangolin@" + $0.absoluteString) } ?? "" }
         set {
             guard let serverURL else { return }
-            Keychain.setToken(newValue, for: "pangolin@" + serverURL.absoluteString)
+            setSecret(newValue, "pangolin@" + serverURL.absoluteString)
             client?.pangolinToken = newValue
         }
     }
