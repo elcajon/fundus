@@ -921,6 +921,7 @@ final class AppModel {
 
     /// Holt das Hauptfenster nach vorne, auch im Menüleisten-Betrieb ohne Dock-Symbol.
     func showMainWindow() {
+        AppSettings.showInDock()
         NSApp.activate(ignoringOtherApps: true)
         openWindowAction?()
     }
@@ -947,31 +948,6 @@ final class AppModel {
         guard url.scheme == "ablage", url.host() == "document",
               let id = Int(url.lastPathComponent) else { return }
         Task { await open(documentID: id) }
-    }
-
-    // MARK: - Push aufs iPhone
-
-    static let pushWorkflowName = "Ablage: Push bei neuem Dokument"
-
-    func setupPush(server: URL, topic: String) async -> Bool {
-        guard let client else { return false }
-        do {
-            try await client.upsertPushWorkflow(name: Self.pushWorkflowName, server: server, topic: topic)
-            toast = String(localized: "Push-Workflow in Paperless eingerichtet.")
-            return true
-        } catch {
-            toast = error.localizedDescription
-            return false
-        }
-    }
-
-    func disablePush() async {
-        do {
-            try await client?.setWorkflowEnabled(name: Self.pushWorkflowName, enabled: false)
-            toast = String(localized: "Push-Workflow deaktiviert.")
-        } catch {
-            toast = error.localizedDescription
-        }
     }
 
     // MARK: - Lookups

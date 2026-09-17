@@ -281,6 +281,7 @@ struct MenuBarContent: View {
             if !model.searchTokens.contains(.inbox) { model.toggleInbox() }
         }
         Button("Importieren …") {
+            AppSettings.showInDock()
             NSApp.activate(ignoringOtherApps: true)
             model.importFiles()
         }
@@ -291,10 +292,12 @@ struct MenuBarContent: View {
         .disabled(model.phase != .ready)
         Divider()
         Button("Einstellungen …") {
+            AppSettings.showInDock()
             NSApp.activate(ignoringOtherApps: true)
             openSettings()
         }
         .keyboardShortcut(",")
-        Button("Ablage beenden") { NSApp.terminate(nil) }
+        Button("Ablage beenden") { AppSettings.quit() }
+            .keyboardShortcut("q")
     }
 }

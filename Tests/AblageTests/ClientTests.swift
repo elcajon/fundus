@@ -89,41 +89,6 @@ struct ClientErrorTests {
     }
 }
 
-@Suite("Push-Workflow")
-struct PushWorkflowTests {
-    @Test(arguments: [
-        ("2.15.3", false), ("2.16.0", true), ("2.18.4", true), ("3.0.0", true), (nil, true), ("dev", true),
-    ] as [(String?, Bool)])
-    func templateSyntax(version: String?, jinja: Bool) {
-        #expect(PaperlessClient.usesJinjaTemplates(version: version) == jinja)
-    }
-
-    @Test("Jinja-Body ist nach dem Rendern gültiges JSON")
-    func jinjaBodyShape() throws {
-        let hook = PaperlessClient.pushWebhook(server: URL(string: "https://ntfy.sh")!, topic: "t\"x",
-                                               paperlessURL: URL(string: "https://p.example/")!, jinja: true)
-        // Platzhalter so ersetzen, wie Paperless es mit `tojson` täte.
-        let rendered = hook.body
-            .replacingOccurrences(of: #"{{ (doc_title ~ ((" · " ~ correspondent) if correspondent else "")) | tojson }}"#,
-                                  with: #""Rechnung \"A\" · Obi""#)
-            .replacingOccurrences(of: "{{ doc_id }}", with: "42")
-        let object = try #require(try JSONSerialization.jsonObject(with: Data(rendered.utf8)) as? [String: Any])
-        #expect(object["topic"] as? String == "t\"x")
-        #expect(object["message"] as? String == "Rechnung \"A\" · Obi")
-        #expect(object["click"] as? String == "https://p.example/documents/42/details")
-        #expect(hook.url == "https://ntfy.sh")
-    }
-
-    @Test("Alte Versionen senden Klartext an das Thema")
-    func legacyBody() {
-        let hook = PaperlessClient.pushWebhook(server: URL(string: "https://ntfy.sh")!, topic: "abc",
-                                               paperlessURL: URL(string: "https://p.example/")!, jinja: false)
-        #expect(hook.url == "https://ntfy.sh/abc")
-        #expect(hook.body == "{doc_title}")
-        #expect(hook.headers["Title"] == "Neues Dokument")
-    }
-}
-
 @Suite("Mehrteiliger Upload")
 struct MultipartTests {
     @Test func bodyContainsFileAndBoundary() throws {
