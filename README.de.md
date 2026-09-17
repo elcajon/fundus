@@ -77,6 +77,12 @@ Fundus gleicht alle 15 Minuten (und nach neuen Dokumenten) eine lokale Kopie ab:
 - Die Dokumente werden an Spotlight gemeldet (Einstellungen → Bibliothek zeigt, wie viele Spotlight kennt). Ein Treffer öffnet sie in Fundus (auch als Link `ablage://document/<id>`).
 - Einstellungen → Bibliothek zeigt den belegten Speicher, gleicht sofort ab oder löscht die Kopie.
 
+## Wie das hier entstanden ist
+
+Fundus ist **vibe gecodet**: Geschrieben hat es praktisch vollständig ein KI-Agent (Claude Code) nach Zuruf, während ich gesteuert, jeden Build an meiner eigenen Paperless-Instanz ausprobiert und entschieden habe, was bleibt. Eine zeilenweise Durchsicht aller Änderungen durch einen Menschen gab es nicht.
+
+Die App läuft hier täglich, die Tests sind grün und die heiklen Stellen habe ich von Hand geprüft. Trotzdem gilt: erst den Code lesen, bevor du sie auf ein Archiv loslässt, an dem dir etwas liegt, Sicherungen behalten und die eine oder andere Ecke erwarten.
+
 ## Protokoll
 
 Fehler landen im macOS-Log:
