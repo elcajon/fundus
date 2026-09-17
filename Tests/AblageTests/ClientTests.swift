@@ -107,3 +107,18 @@ struct MultipartTests {
         #expect(text.hasSuffix("\r\n--XYZ--\r\n"))
     }
 }
+
+@Suite("Kurzbefehl")
+struct ShortcutTests {
+    @Test("Zeichen in der Reihenfolge der Menüs")
+    func label() {
+        // kVK_Space = 49; cmdKey = 256, shiftKey = 512, optionKey = 2048, controlKey = 4096
+        #expect(Shortcut(keyCode: 49, modifiers: 512 | 256).label == "⇧⌘␣")
+        #expect(Shortcut(keyCode: 49, modifiers: 4096 | 2048 | 512 | 256).label == "⌃⌥⇧⌘␣")
+    }
+
+    @Test("Standard ist ⇧⌘A")
+    func standard() {
+        #expect(Shortcut.standard.label == "⇧⌘A")
+    }
+}

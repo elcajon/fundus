@@ -8,24 +8,26 @@ import SwiftUI
 final class QuickSearchController {
     static let shared = QuickSearchController()
     nonisolated static let enabledKey = "quickSearchHotKey"
-    nonisolated static let shortcutLabel = "⌥⌘A"
+
+    /// Konnte der Kurzbefehl nicht angemeldet werden, hat ihn eine andere App belegt.
+    private(set) var registrationFailed = false
 
     private var panel: QuickSearchPanel?
     private var hotKey: GlobalHotKey?
     private var keyMonitor: Any?
     private let state = QuickSearchState()
 
-    /// Kurzbefehl je nach Einstellung an- oder abmelden.
+    /// Kurzbefehl neu anmelden, z. B. nach einer Änderung in den Einstellungen.
     func applySetting() {
-        let enabled = UserDefaults.standard.bool(forKey: Self.enabledKey)
-        if enabled, hotKey == nil {
-            hotKey = GlobalHotKey(keyCode: kVK_ANSI_A, modifiers: cmdKey | optionKey) { [weak self] in
-                self?.toggle()
-            }
-        } else if !enabled {
-            hotKey?.unregister()
-            hotKey = nil
+        hotKey?.unregister()
+        hotKey = nil
+        registrationFailed = false
+        guard UserDefaults.standard.bool(forKey: Self.enabledKey) else { return }
+        let shortcut = Shortcut.current
+        hotKey = GlobalHotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in
+            self?.toggle()
         }
+        registrationFailed = hotKey == nil
     }
 
     func toggle() {
@@ -115,6 +117,129 @@ final class QuickSearchController {
         guard let visible = screen?.visibleFrame else { return }
         let top = visible.maxY - visible.height * 0.22
         panel.setFrameTopLeftPoint(NSPoint(x: visible.midX - Self.width / 2, y: top))
+    }
+}
+
+/// Ein systemweiter Kurzbefehl, wie ihn der Nutzer in den Einstellungen aufnimmt.
+struct Shortcut: Equatable {
+    /// Virtueller Tastencode (`kVK_…`).
+    var keyCode: Int
+    /// Carbon-Flags (`cmdKey`, `shiftKey`, `optionKey`, `controlKey`).
+    var modifiers: Int
+
+    static let standard = Shortcut(keyCode: kVK_ANSI_A, modifiers: cmdKey | shiftKey)
+    static let keyCodeKey = "quickSearchKeyCode"
+    static let modifiersKey = "quickSearchModifiers"
+
+    static var current: Shortcut {
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: keyCodeKey) != nil else { return standard }
+        return Shortcut(keyCode: defaults.integer(forKey: keyCodeKey), modifiers: defaults.integer(forKey: modifiersKey))
+    }
+
+    func save() {
+        UserDefaults.standard.set(keyCode, forKey: Self.keyCodeKey)
+        UserDefaults.standard.set(modifiers, forKey: Self.modifiersKey)
+    }
+
+    /// Aus einem Tastendruck, wenn er mindestens eine Befehlstaste enthält.
+    init?(event: NSEvent) {
+        var carbon = 0
+        if event.modifierFlags.contains(.command) { carbon |= cmdKey }
+        if event.modifierFlags.contains(.shift) { carbon |= shiftKey }
+        if event.modifierFlags.contains(.option) { carbon |= optionKey }
+        if event.modifierFlags.contains(.control) { carbon |= controlKey }
+        // Ohne ⌘, ⌥ oder ⌃ würde der Kurzbefehl normales Tippen abfangen.
+        guard carbon & (cmdKey | optionKey | controlKey) != 0 else { return nil }
+        self.init(keyCode: Int(event.keyCode), modifiers: carbon)
+    }
+
+    init(keyCode: Int, modifiers: Int) {
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+    }
+
+    var label: String {
+        var text = ""
+        if modifiers & controlKey != 0 { text += "⌃" }
+        if modifiers & optionKey != 0 { text += "⌥" }
+        if modifiers & shiftKey != 0 { text += "⇧" }
+        if modifiers & cmdKey != 0 { text += "⌘" }
+        return text + Self.keyName(keyCode)
+    }
+
+    /// Name der Taste, so wie ihn Menüs zeigen.
+    static func keyName(_ keyCode: Int) -> String {
+        if let special = specialKeys[keyCode] { return special }
+        let source = TISCopyCurrentASCIICapableKeyboardLayoutInputSource().takeRetainedValue()
+        guard let pointer = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else { return "?" }
+        let data = Unmanaged<CFData>.fromOpaque(pointer).takeUnretainedValue() as Data
+        var deadKeys: UInt32 = 0
+        var length = 0
+        var characters = [UniChar](repeating: 0, count: 4)
+        let status = data.withUnsafeBytes { buffer -> OSStatus in
+            guard let layout = buffer.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else { return -1 }
+            return UCKeyTranslate(layout, UInt16(keyCode), UInt16(kUCKeyActionDisplay), 0,
+                                  UInt32(LMGetKbdType()), OptionBits(kUCKeyTranslateNoDeadKeysMask),
+                                  &deadKeys, characters.count, &length, &characters)
+        }
+        guard status == noErr, length > 0 else { return "?" }
+        return String(utf16CodeUnits: characters, count: length).uppercased()
+    }
+
+    private static let specialKeys: [Int: String] = [
+        kVK_Space: "␣", kVK_Return: "↩", kVK_Tab: "⇥", kVK_Escape: "⎋", kVK_Delete: "⌫",
+        kVK_LeftArrow: "←", kVK_RightArrow: "→", kVK_UpArrow: "↑", kVK_DownArrow: "↓",
+        kVK_F1: "F1", kVK_F2: "F2", kVK_F3: "F3", kVK_F4: "F4", kVK_F5: "F5", kVK_F6: "F6",
+        kVK_F7: "F7", kVK_F8: "F8", kVK_F9: "F9", kVK_F10: "F10", kVK_F11: "F11", kVK_F12: "F12",
+    ]
+}
+
+/// Nimmt einen Tastendruck auf und speichert ihn als Kurzbefehl.
+struct ShortcutRecorder: View {
+    @State private var shortcut = Shortcut.current
+    @State private var recording = false
+    @State private var monitor: Any?
+
+    var body: some View {
+        Button {
+            recording.toggle()
+        } label: {
+            Group {
+                if recording { Text("Taste drücken …") } else { Text(verbatim: shortcut.label) }
+            }
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .monospacedDigit()
+                .frame(minWidth: 70)
+        }
+        .help("Kurzbefehl ändern")
+        .accessibilityLabel(Text("Kurzbefehl für die Schnellsuche"))
+        .accessibilityValue(Text(shortcut.label))
+        .onChange(of: recording) { _, active in
+            if active { start() } else { stop() }
+        }
+        .onDisappear(perform: stop)
+    }
+
+    private func start() {
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == UInt16(kVK_Escape) {
+                recording = false
+                return nil
+            }
+            guard let new = Shortcut(event: event) else { return nil }
+            shortcut = new
+            new.save()
+            recording = false
+            QuickSearchController.shared.applySetting()
+            return nil
+        }
+    }
+
+    private func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        recording = false
     }
 }
 

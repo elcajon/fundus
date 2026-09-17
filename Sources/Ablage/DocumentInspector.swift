@@ -275,7 +275,7 @@ struct MenuBarContent: View {
             }
         }
         Divider()
-        Button("Schnellsuche (\(QuickSearchController.shortcutLabel))") { QuickSearchController.shared.show() }
+        Button("Schnellsuche (\(Shortcut.current.label))") { QuickSearchController.shared.show() }
         Button("Ablage öffnen") { model.showMainWindow() }
         Button("Eingang anzeigen") {
             model.showMainWindow()

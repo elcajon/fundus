@@ -60,7 +60,13 @@ private struct GeneralSettings: View {
                 Toggle("Symbol in der Menüleiste", isOn: $showMenuBar)
                 Toggle("Nur in der Menüleiste (kein Dock-Symbol)", isOn: $hideDock)
                     .disabled(!showMenuBar)
-                Toggle("Schnellsuche mit \(QuickSearchController.shortcutLabel)", isOn: $quickSearch)
+                Toggle("Schnellsuche aus jeder App", isOn: $quickSearch)
+                LabeledContent("Kurzbefehl") { ShortcutRecorder() }
+                    .disabled(!quickSearch)
+                if quickSearch, QuickSearchController.shared.registrationFailed {
+                    Text("Diesen Kurzbefehl belegt schon eine andere App.")
+                        .font(.caption).foregroundStyle(.orange)
+                }
                 Toggle("Beim Anmelden starten", isOn: $launchAtLogin)
                 if let loginError {
                     Text(loginError).font(.caption).foregroundStyle(.orange)
@@ -68,7 +74,7 @@ private struct GeneralSettings: View {
             } header: {
                 Text("Programm")
             } footer: {
-                Text("Mit Menüleisten-Symbol läuft Ablage weiter: ⌘Q schließt nur die Fenster und blendet das Dock-Symbol aus, „Ablage beenden“ im Menüleisten-Menü beendet die App. Nur in der Menüleiste startet Ablage ohne Fenster und ohne Dock-Symbol, beim Anmelden immer. Die Schnellsuche öffnet sich aus jeder App und zeigt den Treffer in Ablage. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen.").settingsFooter()
+                Text("Mit Menüleisten-Symbol läuft Ablage weiter: ⌘Q schließt nur die Fenster und blendet das Dock-Symbol aus, „Ablage beenden“ im Menüleisten-Menü beendet die App. Nur in der Menüleiste startet Ablage ohne Fenster und ohne Dock-Symbol, beim Anmelden immer. Die Schnellsuche öffnet sich mit ihrem Kurzbefehl aus jeder App und zeigt den Treffer in Ablage. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen.").settingsFooter()
             }
         }
         .formStyle(.grouped)
