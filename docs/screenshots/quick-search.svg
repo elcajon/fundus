@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" width="1280" height="800" font-family="-apple-system, SF Pro Text, Helvetica Neue, Arial, sans-serif">
+  <defs>
+    <linearGradient id="desk" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b3350"/><stop offset="0.5" stop-color="#3a2f52"/><stop offset="1" stop-color="#1c2033"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.82"/><stop offset="1" stop-color="#f3f2f0" stop-opacity="0.72"/>
+    </linearGradient>
+    <filter id="panelShadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="30" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="blurBack" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="7"/></filter>
+  </defs>
+
+  <rect width="1280" height="800" fill="url(#desk)"/>
+
+  <!-- Menüleiste mit Fundus-Symbol -->
+  <rect width="1280" height="26" fill="#000" opacity="0.45"/>
+  <g transform="translate(16,6)" fill="#fff">
+    <text x="0" y="11" font-size="11.5" font-weight="600">Mail</text>
+    <text x="42" y="11" font-size="11.5" opacity="0.85">Ablage</text>
+    <text x="92" y="11" font-size="11.5" opacity="0.85">Bearbeiten</text>
+  </g>
+  <g transform="translate(1106,6)" stroke="#fff" fill="none" stroke-width="1.3">
+    <rect x="0" y="0.5" width="10" height="13" rx="2.5"/>
+    <text x="2.4" y="10.5" font-size="8.5" fill="#fff" stroke="none" font-weight="600">F</text>
+  </g>
+  <g transform="translate(1130,6)" fill="#fff" opacity="0.85">
+    <circle cx="6" cy="7" r="5.5" fill="none" stroke="#fff" stroke-width="1.2"/>
+    <text x="28" y="11" font-size="11">Do. 22:41</text>
+  </g>
+
+  <!-- Fenster einer anderen App im Hintergrund -->
+  <g filter="url(#blurBack)" opacity="0.85">
+    <rect x="150" y="150" width="980" height="560" rx="14" fill="#f5f4f2"/>
+    <rect x="150" y="150" width="980" height="52" rx="14" fill="#e9e7e4"/>
+    <g fill="#d5d2ce">
+      <rect x="182" y="232" width="240" height="12" rx="6"/><rect x="182" y="264" width="300" height="12" rx="6"/>
+      <rect x="182" y="296" width="260" height="12" rx="6"/><rect x="182" y="360" width="640" height="12" rx="6"/>
+      <rect x="182" y="392" width="580" height="12" rx="6"/><rect x="182" y="424" width="620" height="12" rx="6"/>
+      <rect x="182" y="456" width="500" height="12" rx="6"/>
+    </g>
+  </g>
+
+  <!-- Schnellsuche -->
+  <g filter="url(#panelShadow)">
+    <rect x="320" y="186" width="640" height="428" rx="22" fill="url(#glass)"/>
+  </g>
+  <g>
+    <circle cx="358" cy="216" r="8" stroke="#6e6e73" stroke-width="2" fill="none"/>
+    <path d="M364 222l7 7" stroke="#6e6e73" stroke-width="2" stroke-linecap="round"/>
+    <text x="384" y="223" font-size="21" fill="#1d1d1f">rechnung</text>
+    <rect x="384" y="204" width="1.6" height="24" fill="#1d4ed8"/>
+    <line x1="344" y1="242" x2="936" y2="242" stroke="#00000018"/>
+
+    <!-- Treffer 1, ausgewählt -->
+    <rect x="332" y="250" width="616" height="54" rx="10" fill="#1d4ed8"/>
+    <g transform="translate(346,258)">
+      <rect width="28" height="38" rx="4" fill="#fff"/>
+      <g fill="#c7c7cc"><rect x="5" y="6" width="14" height="3" rx="1.5"/><rect x="5" y="13" width="18" height="2.5" rx="1.2"/><rect x="5" y="19" width="16" height="2.5" rx="1.2"/><rect x="5" y="25" width="12" height="2.5" rx="1.2"/></g>
+    </g>
+    <text x="390" y="274" font-size="14" font-weight="600" fill="#fff">2026-09-14_Stadtwerke_Jahresabrechnung Strom</text>
+    <text x="390" y="292" font-size="12" fill="#ffffffcc">Stadtwerke Musterstadt · 14. Sept. 2026</text>
+    <text x="928" y="283" font-size="13" fill="#ffffffcc" text-anchor="end">↩</text>
+
+    <!-- weitere Treffer -->
+    <g font-size="14" fill="#1d1d1f">
+      <g transform="translate(346,316)"><rect width="28" height="38" rx="4" fill="#fff" stroke="#00000014"/>
+        <g fill="#d5d2ce"><rect x="5" y="6" width="14" height="3" rx="1.5"/><rect x="5" y="13" width="18" height="2.5" rx="1.2"/><rect x="5" y="19" width="14" height="2.5" rx="1.2"/></g></g>
+      <text x="390" y="332">2026-09-02_Autohaus Vogel_Rechnung Inspektion</text>
+      <text x="390" y="350" font-size="12" fill="#6e6e73">Autohaus Vogel · 2. Sept. 2026</text>
+
+      <g transform="translate(346,374)"><rect width="28" height="38" rx="4" fill="#fff" stroke="#00000014"/>
+        <g fill="#d5d2ce"><rect x="5" y="6" width="16" height="3" rx="1.5"/><rect x="5" y="13" width="18" height="2.5" rx="1.2"/><rect x="5" y="19" width="12" height="2.5" rx="1.2"/></g></g>
+      <text x="390" y="390">2026-08-21_Telekommunikation Nord_Rechnung 08/2026</text>
+      <text x="390" y="408" font-size="12" fill="#6e6e73">Telekommunikation Nord · 21. Aug. 2026</text>
+
+      <g transform="translate(346,432)"><rect width="28" height="38" rx="4" fill="#fff" stroke="#00000014"/>
+        <g fill="#d5d2ce"><rect x="5" y="6" width="14" height="3" rx="1.5"/><rect x="5" y="13" width="16" height="2.5" rx="1.2"/><rect x="5" y="19" width="15" height="2.5" rx="1.2"/></g></g>
+      <text x="390" y="448">2026-08-04_Hausverwaltung Lindenhof_Nebenkosten</text>
+      <text x="390" y="466" font-size="12" fill="#6e6e73">Hausverwaltung Lindenhof · 4. Aug. 2026</text>
+
+      <g transform="translate(346,490)"><rect width="28" height="38" rx="4" fill="#fff" stroke="#00000014"/>
+        <g fill="#d5d2ce"><rect x="5" y="6" width="15" height="3" rx="1.5"/><rect x="5" y="13" width="18" height="2.5" rx="1.2"/><rect x="5" y="19" width="13" height="2.5" rx="1.2"/></g></g>
+      <text x="390" y="506">2026-07-30_Musterbank_Rechnung Depotführung</text>
+      <text x="390" y="524" font-size="12" fill="#6e6e73">Musterbank · 30. Juli 2026</text>
+
+      <g transform="translate(346,548)"><rect width="28" height="38" rx="4" fill="#fff" stroke="#00000014"/>
+        <g fill="#d5d2ce"><rect x="5" y="6" width="14" height="3" rx="1.5"/><rect x="5" y="13" width="17" height="2.5" rx="1.2"/><rect x="5" y="19" width="12" height="2.5" rx="1.2"/></g></g>
+      <text x="390" y="564">2026-07-11_Stadtwerke_Abschlagsrechnung Gas</text>
+      <text x="390" y="582" font-size="12" fill="#6e6e73">Stadtwerke Musterstadt · 11. Juli 2026</text>
+    </g>
+  </g>
+
+  <text x="640" y="672" font-size="14" fill="#ffffffcc" text-anchor="middle">⇧⌘A öffnet die Schnellsuche aus jeder App · ↩ zeigt das Dokument in Fundus</text>
+</svg>
