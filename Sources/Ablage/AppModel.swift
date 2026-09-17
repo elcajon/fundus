@@ -344,6 +344,21 @@ final class AppModel {
         return result
     }
 
+    /// Schnellsuche: lokale Kopie mit denselben Filtern wie das Suchfeld (#Tag, @Absender, typ:).
+    /// Treffer im Titel stehen vorne.
+    func quickSearch(_ input: String, limit: Int = QuickSearchController.maxRows * 3) async -> [Document] {
+        guard let store else { return [] }
+        let (text, tokens) = parser.parse(input, final: true)
+        let found = await store.documents(matching: DocumentQuery(text: text, tokens: tokens))
+        let words = text.lowercased().split(separator: " ")
+        let inTitle = found.filter { doc in
+            let title = doc.title.lowercased()
+            return words.allSatisfy { title.contains($0) }
+        }
+        let ids = Set(inTitle.map(\.id))
+        return Array((inTitle + found.filter { !ids.contains($0.id) }).prefix(limit))
+    }
+
     /// Dokumente zum Verknüpfen suchen (lokale Kopie, damit das Tippen keine Anfragen erzeugt).
     func linkCandidates(matching text: String, excluding: Set<Int>) async -> [Document] {
         guard let store, !text.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }

@@ -24,6 +24,7 @@ private struct GeneralSettings: View {
     @AppStorage("showTags") private var showTags = true
     @AppStorage(AppSettings.menuBarKey) private var showMenuBar = true
     @AppStorage(AppSettings.hideDockKey) private var hideDock = true
+    @AppStorage(QuickSearchController.enabledKey) private var quickSearch = true
     @State private var launchAtLogin = AppSettings.launchesAtLogin
     @State private var loginError: String?
 
@@ -59,6 +60,7 @@ private struct GeneralSettings: View {
                 Toggle("Symbol in der Menüleiste", isOn: $showMenuBar)
                 Toggle("Nur in der Menüleiste (kein Dock-Symbol)", isOn: $hideDock)
                     .disabled(!showMenuBar)
+                Toggle("Schnellsuche mit \(QuickSearchController.shortcutLabel)", isOn: $quickSearch)
                 Toggle("Beim Anmelden starten", isOn: $launchAtLogin)
                 if let loginError {
                     Text(loginError).font(.caption).foregroundStyle(.orange)
@@ -66,7 +68,7 @@ private struct GeneralSettings: View {
             } header: {
                 Text("Programm")
             } footer: {
-                Text("Mit Menüleisten-Symbol läuft Ablage weiter: ⌘Q schließt nur die Fenster und blendet das Dock-Symbol aus, „Ablage beenden“ im Menüleisten-Menü beendet die App. Nur in der Menüleiste startet Ablage ohne Fenster und ohne Dock-Symbol. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen.").settingsFooter()
+                Text("Mit Menüleisten-Symbol läuft Ablage weiter: ⌘Q schließt nur die Fenster und blendet das Dock-Symbol aus, „Ablage beenden“ im Menüleisten-Menü beendet die App. Nur in der Menüleiste startet Ablage ohne Fenster und ohne Dock-Symbol, beim Anmelden immer. Die Schnellsuche öffnet sich aus jeder App und zeigt den Treffer in Ablage. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen.").settingsFooter()
             }
         }
         .formStyle(.grouped)
@@ -74,6 +76,7 @@ private struct GeneralSettings: View {
         .onChange(of: appearance, initial: false) { _, value in Appearance.apply(value) }
         .onChange(of: showMenuBar) { AppSettings.showInDock() }
         .onChange(of: hideDock) { AppSettings.showInDock() }
+        .onChange(of: quickSearch) { QuickSearchController.shared.applySetting() }
         .onChange(of: launchAtLogin) { _, enabled in
             do {
                 try AppSettings.setLaunchAtLogin(enabled)

@@ -60,6 +60,31 @@ cat > "$app/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+# Anmeldeobjekt: startet Ablage beim Anmelden still (ohne Fenster).
+launcher="$app/Contents/Library/LoginItems/AblageLauncher.app"
+mkdir -p "$launcher/Contents/MacOS"
+swiftc -O -sdk "${SDKROOT:-$(xcrun --show-sdk-path)}" -target "$(uname -m)-apple-macos15.0" \
+  Launcher/main.swift -o "$launcher/Contents/MacOS/AblageLauncher"
+vtool -set-build-version macos 15.0 "$sdk_version" -replace \
+  -output "$launcher/Contents/MacOS/AblageLauncher" "$launcher/Contents/MacOS/AblageLauncher"
+cat > "$launcher/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>AblageLauncher</string>
+  <key>CFBundleDisplayName</key><string>Ablage</string>
+  <key>CFBundleIdentifier</key><string>de.max-venz.ablage.launcher</string>
+  <key>CFBundleExecutable</key><string>AblageLauncher</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>$version</string>
+  <key>CFBundleVersion</key><string>$version</string>
+  <key>LSMinimumSystemVersion</key><string>15.0</string>
+  <key>LSBackgroundOnly</key><true/>
+</dict>
+</plist>
+PLIST
+
 if [[ -f Resources/AppIcon.icns ]]; then
   cp Resources/AppIcon.icns "$app/Contents/Resources/"
 fi
@@ -107,5 +132,6 @@ CNF
 fi
 security unlock-keychain -p "$(<"$signing/password")" "$kc"
 # Hardened Runtime: kein nachgeladener fremder Code, keine Debugger-Anbindung von außen.
-codesign --force --deep --options runtime --keychain "$kc" --sign "$identity" "$app"
+codesign --force --options runtime --keychain "$kc" --sign "$identity" "$launcher"
+codesign --force --options runtime --keychain "$kc" --sign "$identity" "$app"
 echo "Fertig: $PWD/$app"

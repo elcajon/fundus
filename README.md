@@ -55,6 +55,8 @@ Bewusst minimalistisch, nach dem Vorbild von Papers: ein Fenster ohne Seitenleis
 
 **Suche.** Freitext geht an den Volltextindex von Paperless. Filter tippt man direkt ins Suchfeld: `#Steuer` (Tag), `@Obi` (Korrespondent), `typ:Rechnung` (Dokumenttyp). Namen mit Leerzeichen in Anführungszeichen: `#"Haus und Garten"`. Unter dem Feld erscheinen passende Vorschläge; abgeschlossene Filter werden zu Tokens. Mehrere Tags müssen alle passen, mehrere Korrespondenten oder Typen gelten als „oder“. Sortiert wird über Darstellung → Sortieren nach (Dokumentdatum oder Hinzugefügt).
 
+**Schnellsuche.** ⌥⌘A öffnet aus jeder App ein schwebendes Suchfeld (wie Quick Access bei 1Password). Es sucht in der lokalen Kopie, versteht dieselben Filter wie das Suchfeld (`#Tag`, `@Absender`, `typ:`) und zeigt Treffer im Titel zuerst. ↑/↓ wählt, ↩ öffnet das Dokument in Ablage, Esc oder ein Klick daneben schließt. Abschaltbar unter Einstellungen → Allgemein.
+
 **Benutzerdefinierte Felder.** Die Informationen zeigen zugewiesene Felder mit passendem Eingabeelement (Text, Zahl, Betrag mit Währung, Datum, Ja/Nein, Auswahl, Dokument-Verknüpfung). „Feld hinzufügen“ weist weitere Felder zu, der Minus-Knopf entfernt eines. Paperless ersetzt beim Sichern die komplette Feldliste, deshalb sendet die App sie nur, wenn sich daran etwas geändert hat und die Felder des Dokuments vollständig geladen sind. Neue Felder selbst legt man in Paperless an.
 
 **Importe.** Nach dem Hochladen verfolgt die App den Paperless-Task. In der Toolbar zeigt ein Knopf laufende und fehlgeschlagene Importe, samt Meldung von Paperless (z. B. Duplikat). Dateien werden gestreamt, nicht komplett in den Speicher geladen.
@@ -62,7 +64,7 @@ Bewusst minimalistisch, nach dem Vorbild von Papers: ein Fenster ohne Seitenleis
 ## Mitteilungen
 
 - **Auf dem Mac:** Ablage fragt Paperless regelmäßig (Standard: alle 2 Minuten) nach neuen Dokumenten und meldet sie mit Vorschaubild. Ein Klick öffnet das Dokument. Selbst importierte Dokumente meldet der Import, nicht der Watcher.
-- **Menüleiste:** Das Symbol zeigt die neuesten Dokumente und schnelle Aktionen. Solange es aktiv ist, schließt ⌘Q nur die Fenster und blendet das Dock-Symbol aus; Ablage läuft in der Menüleiste weiter und meldet neue Dokumente. Beendet wird die App über „Ablage beenden“ im Menüleisten-Menü, „Ablage → Ablage vollständig beenden“, beim Abmelden oder über „Beenden“ im Dock. Das Fenster (und mit ihm das Dock-Symbol) kommt über das Symbol, einen Spotlight-Treffer, eine Mitteilung oder erneutes Öffnen der App zurück. Auf Wunsch läuft Ablage ganz ohne Dock-Symbol und startet ohne Fenster („Nur in der Menüleiste“).
+- **Menüleiste:** Das Symbol zeigt die neuesten Dokumente und schnelle Aktionen. Solange es aktiv ist, schließt ⌘Q nur die Fenster und blendet das Dock-Symbol aus; Ablage läuft in der Menüleiste weiter und meldet neue Dokumente. Beendet wird die App über „Ablage beenden“ im Menüleisten-Menü, „Ablage → Ablage vollständig beenden“, beim Abmelden oder über „Beenden“ im Dock. Das Fenster (und mit ihm das Dock-Symbol) kommt über das Symbol, einen Spotlight-Treffer, eine Mitteilung oder erneutes Öffnen der App zurück. Beim Anmelden startet eine kleine Hilfs-App im Paket (`Contents/Library/LoginItems/AblageLauncher.app`) Ablage still mit `--silent`: ohne Fenster und ohne Dock-Symbol, wie bei 1Password. Auf Wunsch läuft Ablage ganz ohne Dock-Symbol und startet ohne Fenster („Nur in der Menüleiste“).
 
 ## Offline und Spotlight
 
