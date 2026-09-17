@@ -259,7 +259,7 @@ struct ImportsView: View {
 /// Menü in der Menüleiste: neue Dokumente und schnelle Aktionen, auch ohne offenes Fenster.
 struct MenuBarContent: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         if model.recentNew.isEmpty {
@@ -272,13 +272,9 @@ struct MenuBarContent: View {
             }
         }
         Divider()
-        Button("Ablage öffnen") {
-            openWindow(id: "library")
-            NSApp.activate(ignoringOtherApps: true)
-        }
+        Button("Ablage öffnen") { model.showMainWindow() }
         Button("Eingang anzeigen") {
-            openWindow(id: "library")
-            NSApp.activate(ignoringOtherApps: true)
+            model.showMainWindow()
             if !model.searchTokens.contains(.inbox) { model.toggleInbox() }
         }
         Button("Importieren …") {
@@ -291,7 +287,11 @@ struct MenuBarContent: View {
         }
         .disabled(model.phase != .ready)
         Divider()
-        SettingsLink { Text("Einstellungen …") }
+        Button("Einstellungen …") {
+            NSApp.activate(ignoringOtherApps: true)
+            openSettings()
+        }
+        .keyboardShortcut(",")
         Button("Ablage beenden") { NSApp.terminate(nil) }
     }
 }

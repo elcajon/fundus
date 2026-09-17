@@ -4,7 +4,7 @@ Eine native Mac-App für Paperless-ngx, inspiriert von [Papers](https://papersap
 
 ## Bauen und testen
 
-Xcode ist nicht nötig, die Command Line Tools reichen:
+Voraussetzung ist macOS 15. Xcode ist nicht nötig, die Command Line Tools reichen:
 
 ```sh
 ./test.sh
@@ -12,7 +12,7 @@ Xcode ist nicht nötig, die Command Line Tools reichen:
 open build/Ablage.app
 ```
 
-- `build.sh` baut gegen das neueste macOS-26-SDK, weil im 27er-SDK `@State` ein Macro ist, dessen Plugin nur mit Xcode ausgeliefert wird (die Liquid-Glass-APIs sind in beiden SDKs identisch). Danach trägt es mit `vtool` die echte SDK-Version ins Binary ein: SwiftPM schreibt dort sonst die Mindestversion 14.0 hinein, und macOS zeigt die App dann im alten Design ohne Liquid Glass.
+- `build.sh` baut gegen das neueste macOS-26-SDK, weil im 27er-SDK `@State` ein Macro ist, dessen Plugin nur mit Xcode ausgeliefert wird (die Liquid-Glass-APIs sind in beiden SDKs identisch). Danach trägt es mit `vtool` die echte SDK-Version ins Binary ein: SwiftPM schreibt dort sonst die Mindestversion 15.0 hinein, und macOS zeigt die App dann im alten Design ohne Liquid Glass.
 - Signiert wird mit Hardened Runtime und einem selbst erzeugten Zertifikat aus einem eigenen Schlüsselbund unter `.signing/` (nicht im Repo). Der Login-Schlüsselbund bleibt unberührt. Ohne Apple-Entwicklerzertifikat bindet macOS „Immer erlauben“ beim Schlüsselbund-Zugriff trotzdem an den einzelnen Build: Nach jedem Neubau fragt es einmal nach dem Passwort.
 - `test.sh` führt die Tests (Swift Testing) aus und gibt den Pfad zum Macro-Plugin mit, den die Command Line Tools sonst nicht finden.
 - Beide Skripte prüfen über `scripts/make-strings.py`, dass jeder sichtbare Text eine englische Übersetzung hat (`scripts/translations_en.py`). Deutsch ist die Entwicklungssprache.
@@ -60,7 +60,7 @@ Bewusst minimalistisch, nach dem Vorbild von Papers: ein Fenster ohne Seitenleis
 ## Mitteilungen
 
 - **Auf dem Mac:** Ablage fragt Paperless regelmäßig (Standard: alle 2 Minuten) nach neuen Dokumenten und meldet sie mit Vorschaubild. Ein Klick öffnet das Dokument. Selbst importierte Dokumente meldet der Import, nicht der Watcher.
-- **Menüleiste:** Das Symbol zeigt die neuesten Dokumente und schnelle Aktionen. Mit Symbol läuft Ablage nach dem Schließen des Fensters weiter; auf Wunsch ohne Dock-Symbol und mit Start beim Anmelden.
+- **Menüleiste:** Das Symbol zeigt die neuesten Dokumente und schnelle Aktionen. Standardmäßig läuft Ablage nur in der Menüleiste: ohne Dock-Symbol, beim Start ohne Fenster. Das Fenster öffnet sich über das Symbol, einen Spotlight-Treffer, eine Mitteilung oder erneutes Öffnen der App. Das Dock-Symbol lässt sich in den Einstellungen zurückholen.
 - **Aufs iPhone (ntfy):** Einstellungen → Mitteilungen legt in Paperless den Workflow „Ablage: Push bei neuem Dokument“ an (Trigger „Dokument hinzugefügt“, Webhook an ntfy). Ab Paperless 2.16 wird als JSON an die ntfy-Wurzel gesendet, damit Titel, Korrespondent und ein Link zum Dokument ankommen; ältere Versionen bekommen Klartext an das Thema. Deaktivieren schaltet den Workflow per PATCH ab. Wer das Thema kennt, liest mit.
 
 ## Offline und Spotlight
@@ -68,7 +68,7 @@ Bewusst minimalistisch, nach dem Vorbild von Papers: ein Fenster ohne Seitenleis
 Ablage gleicht alle 15 Minuten (und nach neuen Dokumenten) eine lokale Kopie ab: Titel, Text (bis 50 000 Zeichen je Dokument) und Vorschaubilder aller Dokumente, dazu die 150 zuletzt geöffneten Vorschauen. Einmal täglich ein vollständiger Abgleich, der auch Gelöschtes entfernt. Liegt unter `~/Library/Caches/de.max-venz.ablage/<host>/`.
 
 - Ohne Verbindung zeigt die App die lokale Kopie, sucht darin und öffnet bereits geöffnete Dokumente.
-- Die Dokumente werden an Spotlight gemeldet. Ein Treffer öffnet sie in Ablage (auch als Link `ablage://document/<id>`).
+- Die Dokumente werden an Spotlight gemeldet (Einstellungen → Bibliothek zeigt, wie viele Spotlight kennt). Ein Treffer öffnet sie in Ablage (auch als Link `ablage://document/<id>`).
 - Einstellungen → Bibliothek zeigt den belegten Speicher, gleicht sofort ab oder löscht die Kopie.
 
 ## Protokoll

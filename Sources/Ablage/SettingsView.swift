@@ -23,7 +23,7 @@ private struct GeneralSettings: View {
     @AppStorage("showCorrespondent") private var showCorrespondent = true
     @AppStorage("showTags") private var showTags = true
     @AppStorage(AppSettings.menuBarKey) private var showMenuBar = true
-    @AppStorage(AppSettings.hideDockKey) private var hideDock = false
+    @AppStorage(AppSettings.hideDockKey) private var hideDock = true
     @State private var launchAtLogin = AppSettings.launchesAtLogin
     @State private var loginError: String?
 
@@ -57,7 +57,7 @@ private struct GeneralSettings: View {
 
             Section {
                 Toggle("Symbol in der Menüleiste", isOn: $showMenuBar)
-                Toggle("Kein Symbol im Dock", isOn: $hideDock)
+                Toggle("Nur in der Menüleiste (kein Dock-Symbol)", isOn: $hideDock)
                     .disabled(!showMenuBar)
                 Toggle("Beim Anmelden starten", isOn: $launchAtLogin)
                 if let loginError {
@@ -66,7 +66,7 @@ private struct GeneralSettings: View {
             } header: {
                 Text("Programm")
             } footer: {
-                Text("Mit Menüleisten-Symbol läuft Ablage nach dem Schließen des Fensters weiter. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen.").settingsFooter()
+                Text("Mit Menüleisten-Symbol läuft Ablage nach dem Schließen des Fensters weiter. Nur in der Menüleiste startet Ablage ohne Fenster; das Symbol öffnet es. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen.").settingsFooter()
             }
         }
         .formStyle(.grouped)
@@ -159,11 +159,15 @@ private struct LibrarySettings: View {
     @Environment(AppModel.self) private var model
     @AppStorage(SpotlightIndexer.enabledKey) private var spotlight = true
     @State private var usage: Int64 = 0
+    @State private var indexed: Int?
 
     var body: some View {
         Form {
             Section {
                 Toggle("Dokumente in Spotlight finden", isOn: $spotlight)
+                if spotlight, let indexed {
+                    LabeledContent("In Spotlight", value: String(localized: "\(indexed) Dokumente"))
+                }
             } footer: {
                 Text("Titel, Text und Tags werden an Spotlight gemeldet. Ein Treffer öffnet das Dokument in Ablage.").settingsFooter()
             }
@@ -202,10 +206,16 @@ private struct LibrarySettings: View {
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)
         .task { await refreshUsage() }
-        .onChange(of: spotlight) { _, enabled in Task { await model.setSpotlight(enabled: enabled) } }
+        .onChange(of: spotlight) { _, enabled in
+            Task {
+                await model.setSpotlight(enabled: enabled)
+                indexed = await SpotlightIndexer.count()
+            }
+        }
     }
 
     private func refreshUsage() async {
+        indexed = await SpotlightIndexer.count()
         usage = await model.store?.diskUsage() ?? 0
     }
 }
