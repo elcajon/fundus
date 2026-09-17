@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Liquid Glass ab macOS 26, davor die bisherigen Materialien. So bleibt macOS 14 als Mindestversion.
+/// Liquid Glass ab macOS 26, davor die bisherigen Materialien. So bleibt macOS 15 als Mindestversion.
 extension View {
     @ViewBuilder func glassCapsule() -> some View {
         if #available(macOS 26, *) {

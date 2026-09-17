@@ -6,7 +6,7 @@ import SwiftUI
 @main
 struct AblageApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var model = AppModel()
+    @State private var model = AppModel.shared
     @AppStorage(AppSettings.menuBarKey) private var showMenuBar = true
 
     var body: some Scene {
@@ -15,16 +15,18 @@ struct AblageApp: App {
             RootView()
                 .environment(model)
                 .frame(minWidth: 640, minHeight: 480)
-                // Links (ablage://) und Spotlight-Treffer nimmt der AppDelegate entgegen.
-                .onAppear { appDelegate.model = model }
         }
         .windowToolbarStyle(.unified)
         .defaultSize(width: 1280, height: 860)
+        // Im Menüleisten-Betrieb geht das Fenster beim Start nicht auf.
+        .defaultLaunchBehavior(AppSettings.startsInMenuBar ? .suppressed : .automatic)
         .commands { AblageCommands(model: model) }
 
-        MenuBarExtra("Ablage", systemImage: "doc.on.doc", isInserted: $showMenuBar) {
+        MenuBarExtra(isInserted: $showMenuBar) {
             MenuBarContent()
                 .environment(model)
+        } label: {
+            MenuBarLabel(model: model)
         }
         .menuBarExtraStyle(.menu)
 
@@ -103,6 +105,18 @@ struct AblageCommands: Commands {
     }
 }
 
+/// Symbol in der Menüleiste. Es ist immer da und stellt deshalb auch ohne offenes Fenster
+/// die Aktion zum Öffnen des Hauptfensters bereit.
+struct MenuBarLabel: View {
+    let model: AppModel
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Image(systemName: "doc.on.doc")
+            .onAppear { model.registerWindowOpener { openWindow(id: "library") } }
+    }
+}
+
 enum AppSettings {
     static let menuBarKey = "showMenuBar"
     static let hideDockKey = "hideDockIcon"
@@ -110,16 +124,25 @@ enum AppSettings {
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [
             menuBarKey: true,
-            hideDockKey: false,
+            hideDockKey: true,
             SpotlightIndexer.enabledKey: true,
         ])
         NewDocumentWatcher.registerDefaults()
     }
 
-    /// Ohne Dock-Symbol läuft Ablage wie ein Menüleisten-Programm; Fenster gehen trotzdem auf.
+    /// Nur Menüleiste: kein Dock-Symbol, das Fenster öffnet sich über das Menüleisten-Symbol.
+    static var menuBarOnly: Bool {
+        UserDefaults.standard.bool(forKey: hideDockKey) && UserDefaults.standard.bool(forKey: menuBarKey)
+    }
+
+    /// Beim Start ohne Fenster, sofern schon ein Server eingerichtet ist.
+    static var startsInMenuBar: Bool {
+        registerDefaults()
+        return menuBarOnly && UserDefaults.standard.string(forKey: "serverURL") != nil
+    }
+
     static func applyDockPolicy() {
-        let hide = UserDefaults.standard.bool(forKey: hideDockKey) && UserDefaults.standard.bool(forKey: menuBarKey)
-        NSApp.setActivationPolicy(hide ? .accessory : .regular)
+        NSApp.setActivationPolicy(menuBarOnly ? .accessory : .regular)
     }
 
     static var launchesAtLogin: Bool {
@@ -137,15 +160,7 @@ enum AppSettings {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    weak var model: AppModel? {
-        didSet {
-            // Links, die vor dem ersten Fenster kamen, jetzt öffnen.
-            guard let model, !pendingURLs.isEmpty else { return }
-            for url in pendingURLs { model.handle(url: url) }
-            pendingURLs = []
-        }
-    }
-    private var pendingURLs: [URL] = []
+    private var model: AppModel { .shared }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         AppSettings.registerDefaults()
@@ -154,7 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppSettings.applyDockPolicy()
-        NSApp.activate(ignoringOtherApps: true)
+        if !AppSettings.startsInMenuBar { NSApp.activate(ignoringOtherApps: true) }
         Appearance.apply(UserDefaults.standard.string(forKey: Appearance.key))
     }
 
@@ -168,8 +183,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return !defaults.bool(forKey: NewDocumentWatcher.enabledKey) && !defaults.bool(forKey: AppSettings.menuBarKey)
     }
 
+    /// Erneutes Öffnen (Finder, Spotlight-App-Treffer) zeigt das Fenster.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        if !hasVisibleWindows { model.showMainWindow() }
+        return true
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
-        guard let model else { pendingURLs += urls; return }
         for url in urls { model.handle(url: url) }
     }
 
@@ -178,7 +198,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard userActivity.activityType == CSSearchableItemActionType,
               let identifier = userActivity.userInfo?[CSSearchableItemActivityIdentifier] as? String,
               let id = SpotlightIndexer.documentID(from: identifier) else { return false }
-        Task { @MainActor in await self.model?.open(documentID: id) }
+        Task { @MainActor in await self.model.open(documentID: id) }
         return true
     }
 }
@@ -212,7 +232,7 @@ struct RootView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             // Damit Mitteilungen, Spotlight und Menüleiste das Fenster öffnen können, wenn es zu ist.
-            model.openMainWindow = { openWindow(id: "library") }
+            model.registerWindowOpener { openWindow(id: "library") }
         }
         .sheet(isPresented: $model.showLogin) {
             PangolinLoginSheet()

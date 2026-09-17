@@ -238,6 +238,22 @@ enum SpotlightIndexer {
         Log.sync.info("Spotlight: \(items.count) Dokumente gemeldet")
     }
 
+    /// Anzahl der gemeldeten Dokumente, direkt aus dem Spotlight-Index gelesen.
+    static func count() async -> Int? {
+        await withCheckedContinuation { continuation in
+            let context = CSSearchQueryContext()
+            context.fetchAttributes = []
+            let query = CSSearchQuery(queryString: #"title == "*""#, queryContext: context)
+            var found = 0
+            query.foundItemsHandler = { found += $0.count }
+            query.completionHandler = { error in
+                if let error { Log.sync.error("Spotlight-Abfrage fehlgeschlagen: \(String(describing: error), privacy: .public)") }
+                continuation.resume(returning: error == nil ? found : nil)
+            }
+            query.start()
+        }
+    }
+
     static func remove(_ ids: [Int]) async {
         guard !ids.isEmpty else { return }
         try? await CSSearchableIndex.default().deleteSearchableItems(withIdentifiers: ids.map(identifier))

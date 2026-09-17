@@ -83,13 +83,15 @@ final class AppModel {
     private(set) var client: PaperlessClient?
     private(set) var store: LibraryStore?
     let thumbnails = ThumbnailCache()
-    @ObservationIgnored var openMainWindow: (() -> Void)?
+    @ObservationIgnored private var openWindowAction: (() -> Void)?
     @ObservationIgnored private(set) lazy var watcher = NewDocumentWatcher(model: self)
     @ObservationIgnored private var syncTask: Task<Void, Never>?
 
     private let defaults = UserDefaults.standard
 
-    init() {
+    static let shared = AppModel()
+
+    private init() {
         if let stored = defaults.string(forKey: "serverURL"), let url = URL(string: stored) {
             serverURL = url
             Task { await connect() }
@@ -388,13 +390,52 @@ final class AppModel {
                 let ids = try await client.allDocumentIDs()
                 if !ids.isEmpty { removed = await store.retainOnly(Set(ids)) }
             }
-            await SpotlightIndexer.index(changed, names: spotlightNames, store: store)
+            // Beim ersten Mal (oder nach Änderungen am Index-Format) alles melden, sonst nur Änderungen.
+            let reindexAll = SpotlightIndexer.isEnabled && defaults.integer(forKey: Self.spotlightVersionKey) < Self.spotlightVersion
+            if reindexAll { await SpotlightIndexer.removeAll() }
+            let toIndex = reindexAll ? Array(await store.current().documents.values) : changed
+            await SpotlightIndexer.index(toIndex, names: spotlightNames, store: store)
+            if reindexAll { defaults.set(Self.spotlightVersion, forKey: Self.spotlightVersionKey) }
             await SpotlightIndexer.remove(removed)
             lastSync = Date()
             Log.sync.info("Abgleich: \(changed.count) geändert, \(removed.count) entfernt, voll: \(full)")
+            await fetchMissingThumbnails()
         } catch {
             Log.sync.error("Abgleich fehlgeschlagen: \(String(describing: error), privacy: .public)")
         }
+    }
+
+    private static let spotlightVersionKey = "spotlightIndexVersion"
+    private static let spotlightVersion = 2
+
+    /// Lädt fehlende Vorschaubilder nacheinander nach, damit Offline-Raster und Spotlight sie haben.
+    /// Bricht ab, sobald Pangolin eine Anmeldung verlangt (keine 401-Salven).
+    private func fetchMissingThumbnails() async {
+        guard let client, let store else { return }
+        let missing = await store.current().documents.keys.sorted(by: >)
+            .filter { !FileManager.default.fileExists(atPath: store.thumbURL($0).path()) }
+        guard !missing.isEmpty else { return }
+        var fetched: [Int] = []
+        for id in missing {
+            guard phase == .ready, !Task.isCancelled else { break }
+            do {
+                store.storeThumbnail(try await client.thumbnail(id), for: id)
+                fetched.append(id)
+                if fetched.count % 100 == 0 { await indexThumbnails(fetched.suffix(100)) }
+            } catch ClientError.pangolinLoginRequired {
+                break
+            } catch {
+                Log.sync.error("Vorschaubild \(id) fehlt: \(String(describing: error), privacy: .public)")
+            }
+        }
+        await indexThumbnails(fetched.suffix(fetched.count % 100))
+        Log.sync.info("Vorschaubilder: \(fetched.count) von \(missing.count) nachgeladen")
+    }
+
+    private func indexThumbnails(_ ids: ArraySlice<Int>) async {
+        guard let store, !ids.isEmpty else { return }
+        let docs = await store.current().documents
+        await SpotlightIndexer.index(ids.compactMap { docs[$0] }, names: spotlightNames, store: store)
     }
 
     var spotlightNames: SpotlightIndexer.Names {
@@ -813,10 +854,19 @@ final class AppModel {
         recentNew = Array((docs.sorted { $0.id > $1.id } + recentNew).prefix(8))
     }
 
+    func registerWindowOpener(_ action: @escaping () -> Void) {
+        if openWindowAction == nil { openWindowAction = action }
+    }
+
+    /// Holt das Hauptfenster nach vorne, auch im Menüleisten-Betrieb ohne Dock-Symbol.
+    func showMainWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        openWindowAction?()
+    }
+
     /// Öffnet ein Dokument auch dann, wenn es noch nicht im geladenen Raster steckt.
     func open(documentID id: Int) async {
-        openMainWindow?()
-        NSApp.activate(ignoringOtherApps: true)
+        showMainWindow()
         if document(id) == nil {
             if let client, phase == .ready, let doc = try? await client.document(id) {
                 documents.insert(doc, at: 0)

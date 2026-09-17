@@ -144,7 +144,7 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
         await MainActor.run {
             NSApp.activate(ignoringOtherApps: true)
             if !NSApp.windows.contains(where: { $0.canBecomeMain && $0.isVisible }) {
-                self.model?.openMainWindow?()
+                self.model?.showMainWindow()
             }
             if let id, let model = self.model { Task { await model.open(documentID: id) } }
         }

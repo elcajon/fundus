@@ -6,7 +6,7 @@ import re, sys, pathlib
 CONTEXTS = r'(?:Text|Button|Label|Toggle|Section|Picker|TextField|SecureField|Menu|LabeledContent|' \
            r'ContentUnavailableView|Link|DatePicker|CommandMenu|localized:|\.help|prompt: Text|' \
            r'navigationTitle|LocalizedStringKey|panel\.prompt =)\s*\(?\s*'
-INT_HINTS = ('count', 'Count', 'code', 'failed', '.id', 'id)')
+INT_HINTS = ('indexed', 'count', 'Count', 'code', 'failed', '.id', 'id)')
 
 def interpolations(literal):
     out, i = [], 0

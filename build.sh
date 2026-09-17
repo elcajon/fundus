@@ -21,10 +21,10 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin" "$app/Contents/MacOS/Ablage"
 
-# SwiftPM trägt als SDK-Version die Mindestversion (14.0) ein. macOS entscheidet daran, ob die App
+# SwiftPM trägt als SDK-Version die Mindestversion (15.0) ein. macOS entscheidet daran, ob die App
 # das aktuelle Design (Liquid Glass) bekommt, deshalb die echte SDK-Version nachtragen.
 sdk_version=$(xcrun --sdk "${SDKROOT:-macosx}" --show-sdk-version)
-vtool -set-build-version macos 14.0 "$sdk_version" -replace \
+vtool -set-build-version macos 15.0 "$sdk_version" -replace \
   -output "$app/Contents/MacOS/Ablage" "$app/Contents/MacOS/Ablage"
 
 version=${VERSION:-0.1.0}
@@ -52,7 +52,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
     </dict>
   </array>
   <key>NSHumanReadableCopyright</key><string>Max Venz</string>
-  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>LSMinimumSystemVersion</key><string>15.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
