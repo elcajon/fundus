@@ -25,7 +25,7 @@ Pangolin beantwortet `/api/*` ohne Session mit `401 Unauthorized` (text/plain), 
 
 1. **SSO-Login im App-Fenster.** Beim Verbinden öffnet sich ein WebView mit dem Pangolin-Login. Nach der Anmeldung liegt das Resource-Cookie `p_session_token` im persistenten WebKit-Speicher. Die App kopiert es in ihre URLSession und nutzt es nach jedem Neustart wieder.
    - **Passkeys aus dem Schlüsselbund funktionieren in diesem Fenster nicht.** macOS erlaubt WebAuthn in eingebetteten WebViews nur signierten Browsern mit Entitlement. In Pocket-ID deshalb *Alternative Anmeldemöglichkeiten → Mit einem anderen Gerät anmelden* (QR-Code mit dem iPhone) oder *Logincode* nehmen. Das Banner im Login-Fenster hat dafür einen Direktknopf.
-2. **Paperless-Auth.** Nach dem SSO-Login liest die App `/api/profile/`. Hat das Profil einen API-Token, wird er in den Schlüsselbund übernommen, sonst reicht das Paperless-Session-Cookie zum Lesen. Importe, Bearbeiten und der Push-Workflow brauchen den Token (Paperless prüft ihn vor der Session, also ohne CSRF).
+2. **Paperless-Auth.** Nach dem SSO-Login liest die App `/api/profile/`. Hat das Profil einen API-Token, wird er in den Schlüsselbund übernommen, sonst reicht das Paperless-Session-Cookie zum Lesen. Importe und Bearbeiten brauchen den Token (Paperless prüft ihn vor der Session, also ohne CSRF).
 3. **Alternative ohne Browser:** In den Einstellungen lässt sich ein Pangolin Access Token (Resource → Share Link) eintragen. Die App schickt ihn als `P-Access-Token-Id`/`P-Access-Token`-Header mit, das sind die Standardnamen aus Pangolins `resource_access_token_headers`.
 
 Läuft die Pangolin-Session ab, öffnet sich das Login-Fenster von selbst wieder. Solange sie abgelaufen ist, lädt die App keine Vorschaubilder und fragt nicht nach neuen Dokumenten: Jede Anfrage wäre ein 401, und CrowdSec wertet solche Serien als Angriff.
@@ -62,8 +62,7 @@ Bewusst minimalistisch, nach dem Vorbild von Papers: ein Fenster ohne Seitenleis
 ## Mitteilungen
 
 - **Auf dem Mac:** Ablage fragt Paperless regelmäßig (Standard: alle 2 Minuten) nach neuen Dokumenten und meldet sie mit Vorschaubild. Ein Klick öffnet das Dokument. Selbst importierte Dokumente meldet der Import, nicht der Watcher.
-- **Menüleiste:** Das Symbol zeigt die neuesten Dokumente und schnelle Aktionen. Standardmäßig läuft Ablage nur in der Menüleiste: ohne Dock-Symbol, beim Start ohne Fenster. Das Fenster öffnet sich über das Symbol, einen Spotlight-Treffer, eine Mitteilung oder erneutes Öffnen der App. Das Dock-Symbol lässt sich in den Einstellungen zurückholen.
-- **Aufs iPhone (ntfy):** Einstellungen → Mitteilungen legt in Paperless den Workflow „Ablage: Push bei neuem Dokument“ an (Trigger „Dokument hinzugefügt“, Webhook an ntfy). Ab Paperless 2.16 wird als JSON an die ntfy-Wurzel gesendet, damit Titel, Korrespondent und ein Link zum Dokument ankommen; ältere Versionen bekommen Klartext an das Thema. Deaktivieren schaltet den Workflow per PATCH ab. Wer das Thema kennt, liest mit.
+- **Menüleiste:** Das Symbol zeigt die neuesten Dokumente und schnelle Aktionen. Solange es aktiv ist, schließt ⌘Q nur die Fenster und blendet das Dock-Symbol aus; Ablage läuft in der Menüleiste weiter und meldet neue Dokumente. Beendet wird die App über „Ablage beenden“ im Menüleisten-Menü, „Ablage → Ablage vollständig beenden“, beim Abmelden oder über „Beenden“ im Dock. Das Fenster (und mit ihm das Dock-Symbol) kommt über das Symbol, einen Spotlight-Treffer, eine Mitteilung oder erneutes Öffnen der App zurück. Auf Wunsch läuft Ablage ganz ohne Dock-Symbol und startet ohne Fenster („Nur in der Menüleiste“).
 
 ## Offline und Spotlight
 

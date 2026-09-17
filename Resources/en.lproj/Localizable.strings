@@ -24,6 +24,7 @@
 "Ablage" = "Ablage";
 "Ablage beenden" = "Quit Ablage";
 "Ablage hält Titel, Text und Vorschaubilder aller Dokumente sowie zuletzt geöffnete Dokumente lokal vor. Ohne Verbindung lassen sich so die Bibliothek durchsuchen und bereits geöffnete Dokumente lesen." = "Ablage keeps titles, text and thumbnails of all documents plus recently opened documents on this Mac. Without a connection you can still search the library and read documents you have opened before.";
+"Ablage vollständig beenden" = "Quit Ablage Completely";
 "Ablage öffnen" = "Open Ablage";
 "Abmelden" = "Sign Out";
 "Allgemein" = "General";
@@ -33,7 +34,6 @@
 "Angemeldet als" = "Signed in as";
 "Anmeldung bei Pangolin erforderlich." = "Pangolin sign-in required.";
 "Ansicht zurücksetzen" = "Reset View";
-"Auf diesem Mac" = "On this Mac";
 "Aus Paperless unter Profil → API-Auth-Token. Wird für Importe und Änderungen gebraucht und im Schlüsselbund gespeichert." = "From Paperless under Profile → API Auth Token. Needed for imports and edits; stored in the keychain.";
 "Automatisch" = "Automatic";
 "Automatisch folgt der Einstellung von macOS." = "Automatic follows the macOS setting.";
@@ -47,7 +47,6 @@
 "Dateien aufs Fenster ziehen oder ⌘O." = "Drop files onto the window or press ⌘O.";
 "Datum" = "Date";
 "Datum setzen" = "Set Date";
-"Deaktivieren" = "Disable";
 "Dein Paperless-Archiv, auch hinter Pangolin." = "Your Paperless archive, even behind Pangolin.";
 "Details" = "Details";
 "Die Pangolin-Anmeldung ist abgelaufen. Öffne Ablage, um dich neu anzumelden." = "Your Pangolin sign-in has expired. Open Ablage to sign in again.";
@@ -95,10 +94,8 @@
 "Importieren (⌘O)" = "Import (⌘O)";
 "Importieren …" = "Import…";
 "Importiert" = "Imported";
-"In Paperless einrichten" = "Set Up in Paperless";
 "In Paperless öffnen" = "Open in Paperless";
 "In Spotlight" = "In Spotlight";
-"In der ntfy-App abonnieren" = "Subscribe in the ntfy app";
 "Informationen" = "Info";
 "Informationen (⌘I)" = "Info (⌘I)";
 "Jetzt abgleichen" = "Sync Now";
@@ -113,7 +110,6 @@
 "Kleinere Dokumente" = "Smaller Documents";
 "Korrespondent" = "Correspondent";
 "Leer" = "Empty";
-"Legt in Paperless den Workflow „%@“ an, der bei jedem neuen Dokument Titel und Korrespondent an ntfy schickt. Das kommt auch an, wenn der Mac aus ist. Wer das Thema kennt, liest mit: bei ntfy.sh also ein langes, zufälliges Thema wählen oder einen eigenen ntfy-Server nutzen." = "Creates the workflow “%@” in Paperless, which sends the title and correspondent of every new document to ntfy. This arrives even when the Mac is off. Anyone who knows the topic can read along, so use a long random topic on ntfy.sh or run your own ntfy server.";
 "Lesen" = "Read";
 "Letzter Abgleich" = "Last sync";
 "Link kopieren" = "Copy Link";
@@ -121,7 +117,7 @@
 "Loslassen, um zu importieren" = "Drop to import";
 "Melde dich über Pangolin an. Das Fenster schließt sich, sobald Paperless erreichbar ist." = "Sign in through Pangolin. This window closes as soon as Paperless is reachable.";
 "Minute" = "Minute";
-"Mit Menüleisten-Symbol läuft Ablage nach dem Schließen des Fensters weiter. Nur in der Menüleiste startet Ablage ohne Fenster; das Symbol öffnet es. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen." = "With the menu bar icon, Ablage keeps running after you close the window. In menu bar only mode, Ablage starts without a window; the icon opens it. To open at login, the app should be in the Applications folder.";
+"Mit Menüleisten-Symbol läuft Ablage weiter: ⌘Q schließt nur die Fenster und blendet das Dock-Symbol aus, „Ablage beenden“ im Menüleisten-Menü beendet die App. Nur in der Menüleiste startet Ablage ohne Fenster und ohne Dock-Symbol. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen." = "With the menu bar icon, Ablage keeps running: ⌘Q only closes the windows and hides the Dock icon, “Quit Ablage” in the menu bar menu quits the app. In menu bar only mode, Ablage starts without a window or Dock icon. To open at login, the app should be in the Applications folder.";
 "Mitteilungen" = "Notifications";
 "Nachsehen alle" = "Check every";
 "Neu" = "New";
@@ -145,9 +141,6 @@
 "Paperless-Version" = "Paperless version";
 "Passkeys aus dem Schlüsselbund gehen in diesem Fenster nicht, das erlaubt macOS nur signierten Browsern. Nimm \"Mit einem anderen Gerät anmelden\" (QR-Code mit dem iPhone scannen) oder einen Logincode." = "Keychain passkeys don't work in this window; macOS only allows that for signed browsers. Use \"Sign in with another device\" (scan the QR code with your iPhone) or a login code.";
 "Programm" = "App";
-"Push aufs iPhone (ntfy)" = "Push to iPhone (ntfy)";
-"Push-Workflow deaktiviert." = "Push workflow disabled.";
-"Push-Workflow in Paperless eingerichtet." = "Push workflow set up in Paperless.";
 "Server" = "Server";
 "Server entfernen" = "Remove Server";
 "Serverfehler %lld: %@" = "Server error %lld: %@";
@@ -169,7 +162,6 @@
 "Teilen …" = "Share…";
 "Teilen, Exportieren oder Ziehen wirkt auf alle ausgewählten Dokumente." = "Share, Export and dragging apply to all selected documents.";
 "Text" = "Text";
-"Thema" = "Topic";
 "Titel" = "Title";
 "Titel oder Text suchen" = "Search title or text";
 "Titel und Datum, dazu wahlweise Typ, Korrespondent und Tags. Leere Werte bleiben ausgeblendet." = "Title and date, optionally with type, correspondent and tags. Empty values stay hidden.";
@@ -182,17 +174,13 @@
 "Verknüpfung entfernen" = "Remove Link";
 "Wird hochgeladen …" = "Uploading…";
 "Währung" = "Currency";
-"Zufällig" = "Random";
 "Zum Bearbeiten wird ein Paperless-API-Token benötigt (Einstellungen → Verbindung)." = "Editing needs a Paperless API token (Settings → Connection).";
 "Zurück" = "Back";
 "Zurück zur Übersicht" = "Back to Overview";
 "Zurück zur Übersicht (Esc)" = "Back to overview (Esc)";
 "Zurücksetzen" = "Revert";
-"geheimes-thema" = "secret-topic";
-"https://ntfy.sh" = "https://ntfy.sh";
 "https://…" = "https://…";
 "im Eingang" = "in inbox";
-"ntfy-Server" = "ntfy server";
 "paperless.example.com" = "paperless.example.com";
 "wird nach dem Login übernommen" = "picked up after sign-in";
 "Öffnen" = "Open";

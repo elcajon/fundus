@@ -66,14 +66,14 @@ private struct GeneralSettings: View {
             } header: {
                 Text("Programm")
             } footer: {
-                Text("Mit Menüleisten-Symbol läuft Ablage nach dem Schließen des Fensters weiter. Nur in der Menüleiste startet Ablage ohne Fenster; das Symbol öffnet es. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen.").settingsFooter()
+                Text("Mit Menüleisten-Symbol läuft Ablage weiter: ⌘Q schließt nur die Fenster und blendet das Dock-Symbol aus, „Ablage beenden“ im Menüleisten-Menü beendet die App. Nur in der Menüleiste startet Ablage ohne Fenster und ohne Dock-Symbol. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen.").settingsFooter()
             }
         }
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)
         .onChange(of: appearance, initial: false) { _, value in Appearance.apply(value) }
-        .onChange(of: showMenuBar) { AppSettings.applyDockPolicy() }
-        .onChange(of: hideDock) { AppSettings.applyDockPolicy() }
+        .onChange(of: showMenuBar) { AppSettings.showInDock() }
+        .onChange(of: hideDock) { AppSettings.showInDock() }
         .onChange(of: launchAtLogin) { _, enabled in
             do {
                 try AppSettings.setLaunchAtLogin(enabled)
@@ -90,9 +90,6 @@ private struct NotificationSettings: View {
     @Environment(AppModel.self) private var model
     @AppStorage(NewDocumentWatcher.enabledKey) private var notify = true
     @AppStorage(NewDocumentWatcher.intervalKey) private var interval = 120.0
-    @AppStorage("pushServer") private var pushServer = "https://ntfy.sh"
-    @AppStorage("pushTopic") private var pushTopic = ""
-    @State private var isWorking = false
 
     var body: some View {
         Form {
@@ -105,47 +102,8 @@ private struct NotificationSettings: View {
                     Text("15 Minuten").tag(900.0)
                 }
                 .disabled(!notify)
-            } header: {
-                Text("Auf diesem Mac")
             } footer: {
                 Text("Funktioniert, solange Ablage läuft.").settingsFooter()
-            }
-
-            Section {
-                TextField("ntfy-Server", text: $pushServer, prompt: Text("https://ntfy.sh"))
-                HStack {
-                    TextField("Thema", text: $pushTopic, prompt: Text("geheimes-thema"))
-                    Button("Zufällig") { pushTopic = "ablage-" + UUID().uuidString.lowercased().prefix(18) }
-                }
-                HStack {
-                    Button("In Paperless einrichten") {
-                        guard let url = URL(string: pushServer.trimmingCharacters(in: .whitespaces)) else { return }
-                        isWorking = true
-                        Task {
-                            _ = await model.setupPush(server: url, topic: pushTopic)
-                            isWorking = false
-                        }
-                    }
-                    .disabled(!model.canEdit || pushTopic.count < 8 || isWorking)
-                    Button("Deaktivieren") {
-                        isWorking = true
-                        Task {
-                            await model.disablePush()
-                            isWorking = false
-                        }
-                    }
-                    .disabled(!model.canEdit || isWorking)
-                    if isWorking { ProgressView().controlSize(.small) }
-                }
-                if let link = URL(string: "ntfy://\(URL(string: pushServer)?.host() ?? "ntfy.sh")/\(pushTopic)"), !pushTopic.isEmpty {
-                    LabeledContent("In der ntfy-App abonnieren") {
-                        Text(link.absoluteString).textSelection(.enabled).font(.caption.monospaced())
-                    }
-                }
-            } header: {
-                Text("Push aufs iPhone (ntfy)")
-            } footer: {
-                Text("Legt in Paperless den Workflow „\(AppModel.pushWorkflowName)“ an, der bei jedem neuen Dokument Titel und Korrespondent an ntfy schickt. Das kommt auch an, wenn der Mac aus ist. Wer das Thema kennt, liest mit: bei ntfy.sh also ein langes, zufälliges Thema wählen oder einen eigenen ntfy-Server nutzen.").settingsFooter()
             }
         }
         .formStyle(.grouped)

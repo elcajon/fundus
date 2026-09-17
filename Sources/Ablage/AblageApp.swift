@@ -41,6 +41,9 @@ struct AblageCommands: Commands {
     let model: AppModel
 
     var body: some Commands {
+        CommandGroup(after: .appTermination) {
+            Button("Ablage vollständig beenden") { AppSettings.quit() }
+        }
         CommandGroup(replacing: .newItem) {
             Button("Importieren …") { model.importFiles() }
                 .keyboardShortcut("o")
@@ -141,8 +144,33 @@ enum AppSettings {
         return menuBarOnly && UserDefaults.standard.string(forKey: "serverURL") != nil
     }
 
-    static func applyDockPolicy() {
+    /// Mit Menüleisten-Symbol beendet ⌘Q die App nicht, sondern zieht sie in die Menüleiste zurück.
+    static var keepsRunningInMenuBar: Bool {
+        UserDefaults.standard.bool(forKey: menuBarKey)
+    }
+
+    @MainActor static func applyDockPolicy() {
         NSApp.setActivationPolicy(menuBarOnly ? .accessory : .regular)
+    }
+
+    /// Dock-Symbol zeigen, sobald ein Fenster aufgeht (außer im reinen Menüleisten-Betrieb).
+    @MainActor static func showInDock() {
+        applyDockPolicy()
+    }
+
+    /// Fenster schließen und das Dock-Symbol ausblenden; die App läuft in der Menüleiste weiter.
+    @MainActor static func retreatToMenuBar() {
+        for window in NSApp.windows where window.isVisible && window.canBecomeMain && !(window is NSPanel) {
+            window.close()
+        }
+        NSApp.setActivationPolicy(.accessory)
+        NSApp.hide(nil)
+    }
+
+    /// Wirklich beenden, z. B. über das Menüleisten-Menü.
+    @MainActor static func quit() {
+        AppDelegate.quitRequested = true
+        NSApp.terminate(nil)
     }
 
     static var launchesAtLogin: Bool {
@@ -161,6 +189,7 @@ enum AppSettings {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var model: AppModel { .shared }
+    static var quitRequested = false
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         AppSettings.registerDefaults()
@@ -171,6 +200,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppSettings.applyDockPolicy()
         if !AppSettings.startsInMenuBar { NSApp.activate(ignoringOtherApps: true) }
         Appearance.apply(UserDefaults.standard.string(forKey: Appearance.key))
+    }
+
+    /// ⌘Q zieht die App in die Menüleiste zurück. Beendet wird sie über das Menüleisten-Menü,
+    /// „Vollständig beenden“ oder wenn das System fragt (Abmelden, Ausschalten, Dock, AppleScript).
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if Self.quitRequested || !AppSettings.keepsRunningInMenuBar {
+            return .terminateNow
+        }
+        if let event = NSAppleEventManager.shared().currentAppleEvent,
+           event.eventClass == kCoreEventClass, event.eventID == kAEQuitApplication {
+            return .terminateNow
+        }
+        AppSettings.retreatToMenuBar()
+        return .terminateCancel
     }
 
     func applicationWillTerminate(_ notification: Notification) {
