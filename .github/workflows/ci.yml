@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests and build
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # Der Build erzeugt sonst eine eigene Signatur-Identität im Schlüsselbund;
+      # auf dem Runner genügt eine Ad-hoc-Signatur.
+      - name: Test
+        run: ./test.sh
+
+      - name: Build app
+        env:
+          SIGN_IDENTITY: "-"
+        run: ./build.sh
+
+      - name: Check bundle
+        run: |
+          codesign --verify --strict --verbose=2 build/Fundus.app
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' build/Fundus.app/Contents/Info.plist

@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Baut Ablage.app ohne Xcode, nur mit den Command Line Tools.
+# Baut Fundus.app ohne Xcode, nur mit den Command Line Tools.
 set -euo pipefail
 cd "${0:A:h}"
 
@@ -14,7 +14,7 @@ fi
 python3 scripts/make-strings.py
 
 swift build -c release
-bin=$(swift build -c release --show-bin-path)/Ablage
+bin=$(swift build -c release --show-bin-path)/Fundus
 
 app=build/Fundus.app
 rm -rf "$app"
@@ -61,7 +61,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Anmeldeobjekt: startet Ablage beim Anmelden still (ohne Fenster).
+# Anmeldeobjekt: startet Fundus beim Anmelden still (ohne Fenster).
 launcher="$app/Contents/Library/LoginItems/FundusLauncher.app"
 mkdir -p "$launcher/Contents/MacOS"
 swiftc -O -sdk "${SDKROOT:-$(xcrun --show-sdk-path)}" -target "$(uname -m)-apple-macos15.0" \
@@ -101,7 +101,16 @@ cp -R Resources/*.lproj "$app/Contents/Resources/"
 # Login-Schlüsselbund bleibt unberührt.
 signing="$PWD/.signing"
 kc="$signing/ablage.keychain-db"
-identity="Ablage Local Signing"
+# Name der lokalen Identität: bleibt, damit vorhandene Schlüsselbund-Freigaben weiter gelten.
+identity="${SIGN_IDENTITY:-Ablage Local Signing}"
+# Auf einem CI-Runner gibt es keinen Schlüsselbund und keine dauerhafte Identität: ad hoc signieren.
+if [[ "$identity" == "-" ]]; then
+  codesign --force --options runtime --sign - "$launcher"
+  codesign --force --options runtime --sign - "$app"
+  echo "Fertig (ad hoc signiert): $PWD/$app"
+  exit 0
+fi
+
 if [[ ! -f "$kc" ]]; then
   mkdir -p "$signing" && chmod 700 "$signing"
   openssl rand -hex 24 > "$signing/password" && chmod 600 "$signing/password"
