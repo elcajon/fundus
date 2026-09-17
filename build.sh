@@ -3,9 +3,11 @@
 set -euo pipefail
 cd "${0:A:h}"
 
-# Ab dem macOS-27-SDK ist @State ein Macro, dessen Plugin nur mit Xcode ausgeliefert wird.
-# Solange kein Xcode installiert ist, gegen das neueste SDK davor bauen.
-if ! xcode-select -p | grep -q Xcode.app; then
+# Gebraucht wird ein macOS-26-SDK: Im 27er ist @State ein Macro, dessen Plugin nur mit Xcode
+# ausgeliefert wird; ältere SDKs kennen die Liquid-Glass-APIs nicht. Passt das ausgewählte SDK
+# nicht, auf ein 26er aus den Command Line Tools ausweichen.
+sdk_major=$(xcrun --sdk macosx --show-sdk-version 2>/dev/null | cut -d. -f1)
+if [[ "${sdk_major:-0}" != 26 ]]; then
   sdk=$(ls -d /Library/Developer/CommandLineTools/SDKs/MacOSX26*.sdk 2>/dev/null | sort -V | tail -1)
   [[ -n "$sdk" ]] && export SDKROOT="$sdk"
 fi
