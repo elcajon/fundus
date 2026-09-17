@@ -42,7 +42,7 @@ Bewusst minimalistisch, nach dem Vorbild von Papers: ein Fenster ohne Seitenleis
 | Doppelklick, Leertaste, ↩, ⌘↓ | lesen (im selben Fenster) |
 | Esc, ⌘↑ | Lesemodus schließen, Auswahl aufheben |
 | ← → ↑ ↓ | durchs Raster wandern, im Lesemodus ← → zum vorigen/nächsten Dokument |
-| ⌘I | Informationen: Titel, Datum, Korrespondent, Typ und Tags bearbeiten (⌘S sichert) |
+| ⌘I | Informationen: Titel, Datum, Korrespondent, Typ, Tags und benutzerdefinierte Felder bearbeiten (⌘S sichert) |
 | ⇧⌘I | Eingang anzeigen |
 | ⌘↩ | im Eingang: Änderungen sichern, Eingangs-Tags entfernen, weiter zum nächsten |
 | ⌘F | suchen |
@@ -54,6 +54,8 @@ Bewusst minimalistisch, nach dem Vorbild von Papers: ein Fenster ohne Seitenleis
 | ⌘R | neu laden |
 
 **Suche.** Freitext geht an den Volltextindex von Paperless. Filter tippt man direkt ins Suchfeld: `#Steuer` (Tag), `@Obi` (Korrespondent), `typ:Rechnung` (Dokumenttyp). Namen mit Leerzeichen in Anführungszeichen: `#"Haus und Garten"`. Unter dem Feld erscheinen passende Vorschläge; abgeschlossene Filter werden zu Tokens. Mehrere Tags müssen alle passen, mehrere Korrespondenten oder Typen gelten als „oder“. Sortiert wird über Darstellung → Sortieren nach (Dokumentdatum oder Hinzugefügt).
+
+**Benutzerdefinierte Felder.** Die Informationen zeigen zugewiesene Felder mit passendem Eingabeelement (Text, Zahl, Betrag mit Währung, Datum, Ja/Nein, Auswahl, Dokument-Verknüpfung). „Feld hinzufügen“ weist weitere Felder zu, der Minus-Knopf entfernt eines. Paperless ersetzt beim Sichern die komplette Feldliste, deshalb sendet die App sie nur, wenn sich daran etwas geändert hat und die Felder des Dokuments vollständig geladen sind. Neue Felder selbst legt man in Paperless an.
 
 **Importe.** Nach dem Hochladen verfolgt die App den Paperless-Task. In der Toolbar zeigt ein Knopf laufende und fehlgeschlagene Importe, samt Meldung von Paperless (z. B. Duplikat). Dateien werden gestreamt, nicht komplett in den Speicher geladen.
 

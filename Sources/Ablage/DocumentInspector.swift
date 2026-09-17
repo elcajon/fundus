@@ -13,7 +13,8 @@ struct DocumentInspector: View {
             }
         } else if let doc = model.focusedDocument {
             DocumentEditor(document: doc)
-                .id(doc.id)
+                // Neu aufbauen, sobald die benutzerdefinierten Felder nachgeladen sind.
+                .id("\(doc.id)-\(doc.customFields != nil)")
         } else {
             ContentUnavailableView("Kein Dokument ausgewählt", systemImage: "doc.text.magnifyingglass",
                                    description: Text("Doppelklick oder Leertaste öffnet es zum Lesen."))
@@ -104,6 +105,8 @@ private struct DocumentEditor: View {
                 }
             }
             .disabled(!editable)
+
+            CustomFieldsSection(documentID: document.id, fields: $draft.customFields, editable: editable)
 
             Section {
                 HStack {

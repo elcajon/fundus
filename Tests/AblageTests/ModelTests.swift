@@ -232,3 +232,74 @@ struct LibraryStoreTests {
         #expect(results.map(\.id) == [2])
     }
 }
+
+@Suite("Benutzerdefinierte Felder")
+struct CustomFieldTests {
+    func decodeObject(_ value: some Encodable) throws -> [String: Any] {
+        try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
+    }
+
+    @Test func documentWithFields() throws {
+        let json = #"""
+        {"id": 1, "title": "x", "tags": [], "custom_fields": [
+          {"field": 1, "value": "EUR12.50"}, {"field": 2, "value": true}, {"field": 3, "value": 7},
+          {"field": 4, "value": 1.5}, {"field": 5, "value": [3, 4]}, {"field": 6, "value": null}]}
+        """#
+        let doc = try JSONDecoder().decode(Document.self, from: Data(json.utf8))
+        #expect(doc.customFields?.map(\.value) == [.string("EUR12.50"), .bool(true), .int(7), .double(1.5), .ids([3, 4]), .null])
+    }
+
+    @Test("Liste ohne Felder bleibt nil")
+    func documentWithoutFields() throws {
+        let doc = try JSONDecoder().decode(Document.self, from: Data(#"{"id": 1, "title": "x", "tags": []}"#.utf8))
+        #expect(doc.customFields == nil)
+    }
+
+    @Test func selectOptionsModern() throws {
+        let json = #"{"id": 2, "name": "Status", "data_type": "select", "extra_data": {"select_options": [{"id": "aB3", "label": "Offen"}], "default_currency": null}}"#
+        let field = try JSONDecoder().decode(CustomFieldDefinition.self, from: Data(json.utf8))
+        #expect(field.kind == .select)
+        #expect(field.label(for: .string("aB3")) == "Offen")
+    }
+
+    @Test("Vor 2.14: Optionen als Namen, Wert ist der Index")
+    func selectOptionsLegacy() throws {
+        let json = #"{"id": 2, "name": "Status", "data_type": "select", "extra_data": {"select_options": ["Offen", "Bezahlt"]}}"#
+        let field = try JSONDecoder().decode(CustomFieldDefinition.self, from: Data(json.utf8))
+        #expect(field.label(for: .int(1)) == "Bezahlt")
+        // Round-Trip über die lokale Kopie.
+        let again = try JSONDecoder().decode(CustomFieldDefinition.self, from: JSONEncoder().encode(field))
+        #expect(again == field)
+    }
+
+    @Test func monetary() {
+        let parsed = Monetary.parse(.string("EUR12.50"))
+        #expect(parsed.currency == "EUR")
+        #expect(parsed.amount == Decimal(string: "12.5"))
+        #expect(Monetary.parse(.double(3.5)).currency == nil)
+        #expect(Monetary.value(currency: "usd", amount: Decimal(string: "1234.5")) == .string("USD1234.50"))
+        #expect(Monetary.value(currency: "EUR", amount: nil) == .null)
+    }
+
+    @Test("Felder werden nur bei Änderungen gesendet")
+    func updateSendsFieldsOnlyWhenChanged() throws {
+        var doc = Document(id: 1, title: "T", correspondent: nil, documentType: nil, tags: [], created: "2026-01-05",
+                           added: nil, modified: nil, content: nil, pageCount: nil, originalFileName: nil, searchHit: nil)
+        #expect(try decodeObject(DocumentUpdate(doc))["custom_fields"] == nil)
+
+        doc.customFields = [CustomFieldInstance(field: 1, value: .int(3))]
+        var update = DocumentUpdate(doc)
+        #expect(try decodeObject(update)["custom_fields"] == nil)
+
+        update.customFields?.append(CustomFieldInstance(field: 2, value: .null))
+        let sent = try #require(try decodeObject(update)["custom_fields"] as? [[String: Any]])
+        #expect(sent.count == 2)
+        #expect(sent[1]["value"] is NSNull)
+
+        // Unbekannte Felder (nil) nie überschreiben.
+        doc.customFields = nil
+        var blind = DocumentUpdate(doc)
+        blind.customFields = [CustomFieldInstance(field: 9, value: .int(1))]
+        #expect(try decodeObject(blind)["custom_fields"] == nil)
+    }
+}

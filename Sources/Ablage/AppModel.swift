@@ -30,6 +30,8 @@ final class AppModel {
     private var tagsByID: [Int: NamedItem] = [:]
     private var correspondentsByID: [Int: NamedItem] = [:]
     private var typesByID: [Int: NamedItem] = [:]
+    var customFields: [CustomFieldDefinition] = []
+    private var customFieldsByID: [Int: CustomFieldDefinition] = [:]
 
     // MARK: Ansicht
 
@@ -213,6 +215,7 @@ final class AppModel {
         }
         let snapshot = await store.current()
         applyMetadata(tags: snapshot.tags, correspondents: snapshot.correspondents, types: snapshot.types)
+        applyCustomFields(snapshot.customFields ?? [])
         phase = .offline(reason)
         await reload()
     }
@@ -292,6 +295,47 @@ final class AppModel {
             Log.network.error("Tags/Korrespondenten/Typen nicht geladen: \(String(describing: error), privacy: .public)")
             toast = String(localized: "Tags und Korrespondenten konnten nicht geladen werden: \(error.localizedDescription)")
         }
+        // Eigene Abfrage: Ohne Berechtigung für Felder sollen Tags trotzdem funktionieren.
+        do {
+            let fields = try await client.customFields()
+            applyCustomFields(fields)
+            await store?.setCustomFields(fields)
+        } catch {
+            Log.network.error("Benutzerdefinierte Felder nicht geladen: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    private func applyCustomFields(_ fields: [CustomFieldDefinition]) {
+        customFields = fields.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        customFieldsByID = Dictionary(fields.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+    }
+
+    func customField(_ id: Int) -> CustomFieldDefinition? { customFieldsByID[id] }
+
+    /// Lädt ein Dokument vollständig nach, z. B. wenn die Liste keine Felder enthielt.
+    func refreshDocument(_ id: Int) async {
+        guard let client, phase == .ready, let fresh = try? await client.document(id) else { return }
+        var doc = fresh
+        doc.searchHit = document(id)?.searchHit
+        if let index = documents.firstIndex(where: { $0.id == id }) { documents[index] = doc }
+        await store?.upsert([doc], lastModified: nil)
+    }
+
+    /// Titel verknüpfter Dokumente, aus dem Raster oder der lokalen Kopie.
+    func titles(for ids: [Int]) async -> [Int: String] {
+        var result: [Int: String] = [:]
+        let stored = await store?.current().documents ?? [:]
+        for id in ids {
+            result[id] = document(id)?.title ?? stored[id]?.title
+        }
+        return result
+    }
+
+    /// Dokumente zum Verknüpfen suchen (lokale Kopie, damit das Tippen keine Anfragen erzeugt).
+    func linkCandidates(matching text: String, excluding: Set<Int>) async -> [Document] {
+        guard let store, !text.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
+        let found = await store.documents(matching: DocumentQuery(text: text))
+        return Array(found.filter { !excluding.contains($0.id) }.prefix(20))
     }
 
     private func applyMetadata(tags: [NamedItem], correspondents: [NamedItem], types: [NamedItem]) {
