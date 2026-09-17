@@ -314,6 +314,12 @@ struct DocumentUpdate: Encodable, Equatable {
         case customFields = "custom_fields"
     }
 
+    /// Vergleicht nur die bearbeitbaren Werte, nicht den Ausgangszustand.
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.title == rhs.title && lhs.created == rhs.created && lhs.correspondent == rhs.correspondent
+            && lhs.documentType == rhs.documentType && lhs.tags == rhs.tags && lhs.customFields == rhs.customFields
+    }
+
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(title, forKey: .title)

@@ -67,6 +67,7 @@
 "Dokumenttyp" = "Document type";
 "Doppelklick oder Leertaste öffnet es zum Lesen." = "Double-click or press Space to read it.";
 "Dunkel" = "Dark";
+"Ein Paperless-Workflow hat „%@“ nach dem Sichern geändert." = "A Paperless workflow changed “%@” after saving.";
 "Eingang" = "Inbox";
 "Eingang anzeigen" = "Show Inbox";
 "Eingang ausblenden" = "Hide Inbox";

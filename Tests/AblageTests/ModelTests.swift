@@ -296,6 +296,11 @@ struct CustomFieldTests {
         #expect(sent.count == 2)
         #expect(sent[1]["value"] is NSNull)
 
+        // Nach dem Sichern gilt der neue Stand als unverändert.
+        var saved = doc
+        saved.customFields = update.customFields
+        #expect(update == DocumentUpdate(saved))
+
         // Unbekannte Felder (nil) nie überschreiben.
         doc.customFields = nil
         var blind = DocumentUpdate(doc)
