@@ -1,40 +1,84 @@
-// Rendert das App-Icon: ein kleiner Papierstapel auf warmem Grund.
+// Rendert das App-Icon (hell und dunkel) und das Menüleisten-Symbol.
+// Aufruf: swift scripts/make-icon.swift <Zielordner>
 import AppKit
 
-func render(_ size: CGFloat) -> Data {
+struct Theme {
+    let top: NSColor
+    let bottom: NSColor
+    let ink: NSColor
+    /// Feine Kante, damit das helle Icon auch auf dunklem Grund Kontur hat.
+    let rim: NSColor
+}
+
+let light = Theme(top: NSColor(red: 0.98, green: 0.96, blue: 0.92, alpha: 1),
+                  bottom: NSColor(red: 0.90, green: 0.87, blue: 0.80, alpha: 1),
+                  ink: NSColor(red: 0.16, green: 0.17, blue: 0.18, alpha: 1),
+                  rim: NSColor(red: 0.55, green: 0.50, blue: 0.42, alpha: 0.5))
+let dark = Theme(top: NSColor(red: 0.23, green: 0.24, blue: 0.26, alpha: 1),
+                 bottom: NSColor(red: 0.09, green: 0.10, blue: 0.11, alpha: 1),
+                 ink: NSColor(red: 0.96, green: 0.94, blue: 0.90, alpha: 1),
+                 rim: NSColor(white: 1, alpha: 0.12))
+
+/// Zeichnet das Motiv in ein Quadrat der Kantenlänge `size`: Blattkontur mit einem F.
+func draw(_ theme: Theme, size: CGFloat) {
+    let s = size / 512
+    let tile = NSBezierPath(roundedRect: NSRect(x: 50*s, y: 50*s, width: 412*s, height: 412*s),
+                            xRadius: 92*s, yRadius: 92*s)
+    NSGradient(starting: theme.top, ending: theme.bottom)!.draw(in: tile, angle: -90)
+    theme.rim.setStroke()
+    tile.lineWidth = 3*s
+    tile.stroke()
+
+    let sheet = NSBezierPath(roundedRect: NSRect(x: 151*s, y: 122*s, width: 210*s, height: 268*s),
+                             xRadius: 26*s, yRadius: 26*s)
+    sheet.lineWidth = 18*s
+    theme.ink.setStroke()
+    sheet.stroke()
+
+    let font = NSFont.systemFont(ofSize: 150*s, weight: .medium)
+    let text = NSAttributedString(string: "F", attributes: [.font: font, .foregroundColor: theme.ink])
+    let bounds = text.boundingRect(with: .zero, options: [.usesDeviceMetrics])
+    text.draw(at: NSPoint(x: 256*s - bounds.width/2 - bounds.minX, y: 252*s - bounds.height/2 - bounds.minY))
+}
+
+func image(_ theme: Theme, size: CGFloat) -> Data {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size), pixelsHigh: Int(size),
                                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-    let s = size / 1024
-    let bg = NSBezierPath(roundedRect: NSRect(x: 100*s, y: 100*s, width: 824*s, height: 824*s), xRadius: 185*s, yRadius: 185*s)
-    NSGradient(starting: NSColor(red: 0.98, green: 0.62, blue: 0.36, alpha: 1),
-               ending: NSColor(red: 0.86, green: 0.33, blue: 0.27, alpha: 1))!.draw(in: bg, angle: -90)
-    let sheets: [(CGFloat, CGFloat, CGFloat)] = [(-10, -34, 0.78), (6, 22, 0.9), (0, 0, 1)]
-    for (angle, dx, alpha) in sheets {
-        NSGraphicsContext.saveGraphicsState()
-        let t = NSAffineTransform()
-        t.translateX(by: 512*s + dx*s, yBy: 500*s); t.rotate(byDegrees: angle); t.concat()
-        let shadow = NSShadow(); shadow.shadowBlurRadius = 24*s; shadow.shadowOffset = NSSize(width: 0, height: -8*s)
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.22); shadow.set()
-        NSColor(white: 1, alpha: alpha).setFill()
-        NSBezierPath(roundedRect: NSRect(x: -200*s, y: -270*s, width: 400*s, height: 540*s), xRadius: 22*s, yRadius: 22*s).fill()
-        NSGraphicsContext.restoreGraphicsState()
-    }
-    NSColor(red: 0.86, green: 0.33, blue: 0.27, alpha: 0.9).setFill()
-    NSBezierPath(roundedRect: NSRect(x: 372*s, y: 640*s, width: 200*s, height: 30*s), xRadius: 15*s, yRadius: 15*s).fill()
-    NSColor(white: 0.8, alpha: 1).setFill()
-    for i in 0..<6 {
-        let w: CGFloat = i == 5 ? 160 : 280
-        NSBezierPath(roundedRect: NSRect(x: 372*s, y: (570 - CGFloat(i)*62)*s, width: w*s, height: 22*s), xRadius: 11*s, yRadius: 11*s).fill()
-    }
+    draw(theme, size: size)
     NSGraphicsContext.current = nil
     return rep.representation(using: .png, properties: [:])!
 }
 
-let dir = URL(fileURLWithPath: CommandLine.arguments[1])
-try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-for base in [16, 32, 128, 256, 512] {
-    try! render(CGFloat(base)).write(to: dir.appendingPathComponent("icon_\(base)x\(base).png"))
-    try! render(CGFloat(base * 2)).write(to: dir.appendingPathComponent("icon_\(base)x\(base)@2x.png"))
+/// Menüleiste: nur das Motiv in Schwarz, macOS färbt es selbst ein (Template).
+func menuBar(size: CGFloat) -> Data {
+    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size), pixelsHigh: Int(size),
+                               bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                               colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    let s = size / 36
+    let sheet = NSBezierPath(roundedRect: NSRect(x: 8.5*s, y: 4.5*s, width: 19*s, height: 27*s),
+                             xRadius: 4*s, yRadius: 4*s)
+    sheet.lineWidth = 2.4*s
+    NSColor.black.setStroke()
+    sheet.stroke()
+    let font = NSFont.systemFont(ofSize: 15*s, weight: .medium)
+    let text = NSAttributedString(string: "F", attributes: [.font: font, .foregroundColor: NSColor.black])
+    let bounds = text.boundingRect(with: .zero, options: [.usesDeviceMetrics])
+    text.draw(at: NSPoint(x: 18*s - bounds.width/2 - bounds.minX, y: 18*s - bounds.height/2 - bounds.minY))
+    NSGraphicsContext.current = nil
+    return rep.representation(using: .png, properties: [:])!
 }
+
+let target = URL(fileURLWithPath: CommandLine.arguments[1])
+for (name, theme) in [("AppIcon", light), ("AppIconDark", dark)] {
+    let set = target.appending(path: "\(name).iconset")
+    try? FileManager.default.createDirectory(at: set, withIntermediateDirectories: true)
+    for base in [16, 32, 128, 256, 512] {
+        try image(theme, size: CGFloat(base)).write(to: set.appending(path: "icon_\(base)x\(base).png"))
+        try image(theme, size: CGFloat(base * 2)).write(to: set.appending(path: "icon_\(base)x\(base)@2x.png"))
+    }
+}
+try menuBar(size: 36).write(to: target.appending(path: "MenuBarIcon.png"))
+try menuBar(size: 72).write(to: target.appending(path: "MenuBarIcon@2x.png"))

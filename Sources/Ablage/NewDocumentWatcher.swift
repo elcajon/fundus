@@ -61,8 +61,8 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
         } catch ClientError.pangolinLoginRequired {
             // Nicht weiter pollen: jede Runde wäre ein 401 für CrowdSec. Einmal Bescheid geben.
             stop()
-            post(id: "session", title: "Ablage",
-                 body: String(localized: "Die Pangolin-Anmeldung ist abgelaufen. Öffne Ablage, um dich neu anzumelden."))
+            post(id: "session", title: "Fundus",
+                 body: String(localized: "Die Pangolin-Anmeldung ist abgelaufen. Öffne Fundus, um dich neu anzumelden."))
             return
         } catch {
             Log.network.error("Nachsehen nach neuen Dokumenten fehlgeschlagen: \(String(describing: error), privacy: .public)")
@@ -84,7 +84,7 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
         model.noteNewDocuments(fresh)
         Task { await model.syncLibrary() }
 
-        // Was Ablage selbst importiert hat, meldet schon der Import.
+        // Was Fundus selbst importiert hat, meldet schon der Import.
         let foreign = fresh.filter { !model.ownImports.contains($0.id) }
         guard !foreign.isEmpty else { return }
         if foreign.count > 3 {

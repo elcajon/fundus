@@ -4,14 +4,14 @@ import ServiceManagement
 import SwiftUI
 
 @main
-struct AblageApp: App {
+struct FundusApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel.shared
     @AppStorage(AppSettings.menuBarKey) private var showMenuBar = true
 
     var body: some Scene {
         // Ein einziges Hauptfenster: openWindow holt es nach vorne statt ein zweites zu öffnen.
-        Window("Ablage", id: "library") {
+        Window("Fundus", id: "library") {
             RootView()
                 .environment(model)
                 .frame(minWidth: 640, minHeight: 480)
@@ -20,7 +20,7 @@ struct AblageApp: App {
         .defaultSize(width: 1280, height: 860)
         // Im Menüleisten-Betrieb geht das Fenster beim Start nicht auf.
         .defaultLaunchBehavior(AppSettings.startsInMenuBar ? .suppressed : .automatic)
-        .commands { AblageCommands(model: model) }
+        .commands { FundusCommands(model: model) }
 
         MenuBarExtra(isInserted: $showMenuBar) {
             MenuBarContent()
@@ -37,12 +37,12 @@ struct AblageApp: App {
     }
 }
 
-struct AblageCommands: Commands {
+struct FundusCommands: Commands {
     let model: AppModel
 
     var body: some Commands {
         CommandGroup(after: .appTermination) {
-            Button("Ablage vollständig beenden") { AppSettings.quit() }
+            Button("Fundus vollständig beenden") { AppSettings.quit() }
         }
         CommandGroup(replacing: .newItem) {
             Button("Importieren …") { model.importFiles() }
@@ -115,8 +115,14 @@ struct MenuBarLabel: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Image(systemName: "doc.on.doc")
-            .onAppear { model.registerWindowOpener { openWindow(id: "library") } }
+        Group {
+            if let icon = Appearance.menuBarIcon {
+                Image(nsImage: icon)
+            } else {
+                Image(systemName: "doc.text")
+            }
+        }
+        .onAppear { model.registerWindowOpener { openWindow(id: "library") } }
     }
 }
 
@@ -181,7 +187,7 @@ enum AppSettings {
         NSApp.terminate(nil)
     }
 
-    /// Anmeldeobjekt ist die Hilfs-App im Paket; sie startet Ablage mit `--silent`.
+    /// Anmeldeobjekt ist die Hilfs-App im Paket; sie startet Fundus mit `--silent`.
     static let launcher = SMAppService.loginItem(identifier: "de.max-venz.ablage.launcher")
 
     static var launchesAtLogin: Bool {
@@ -214,6 +220,7 @@ enum AppSettings {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var model: AppModel { .shared }
+    private var appearanceObserver: NSKeyValueObservation?
     static var quitRequested = false
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -227,6 +234,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppSettings.migrateLoginItem()
         QuickSearchController.shared.applySetting()
         Appearance.apply(UserDefaults.standard.string(forKey: Appearance.key))
+        Appearance.applyIcon()
+        appearanceObserver = NSApp.observe(\.effectiveAppearance) { _, _ in
+            MainActor.assumeIsolated { Appearance.applyIcon() }
+        }
     }
 
     /// ⌘Q zieht die App in die Menüleiste zurück. Beendet wird sie über das Menüleisten-Menü,
@@ -275,6 +286,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 enum Appearance {
     static let key = "appearance"
+
+    /// Eigenes Menüleisten-Symbol; als Template färbt macOS es hell oder dunkel ein.
+    static let menuBarIcon: NSImage? = {
+        guard let url = Bundle.main.url(forResource: "MenuBarIcon", withExtension: "png"),
+              let image = NSImage(contentsOf: url) else { return nil }
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = true
+        return image
+    }()
+
+    /// `.icns` kennt keine Varianten für Hell und Dunkel. Das Dock-Symbol der laufenden App
+    /// lässt sich aber austauschen; im Finder bleibt es die helle Fassung.
+    @MainActor static func applyIcon() {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        guard isDark, let url = Bundle.main.url(forResource: "AppIconDark", withExtension: "icns"),
+              let image = NSImage(contentsOf: url) else {
+            NSApp.applicationIconImage = nil
+            return
+        }
+        NSApp.applicationIconImage = image
+    }
 
     static func apply(_ value: String?) {
         switch value {
