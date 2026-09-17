@@ -13,6 +13,7 @@ actor LibraryStore {
         var tags: [NamedItem] = []
         var correspondents: [NamedItem] = []
         var types: [NamedItem] = []
+        var customFields: [CustomFieldDefinition]?
         /// Zeitstempel des letzten erfolgreichen Abgleichs (Server-Zeit aus `modified`).
         var lastModified: String?
         var lastFullSync: Date?
@@ -78,6 +79,12 @@ actor LibraryStore {
         save()
     }
 
+    func setCustomFields(_ fields: [CustomFieldDefinition]) {
+        ensureLoaded()
+        snapshot.customFields = fields
+        save()
+    }
+
     /// Übernimmt geänderte Dokumente. Gibt die gespeicherten Fassungen zurück.
     @discardableResult
     func upsert(_ docs: [Document], lastModified: String?) -> [Document] {
@@ -92,6 +99,9 @@ actor LibraryStore {
             if let old = snapshot.documents[doc.id], let oldContent = old.content,
                (doc.content?.count ?? 0) < oldContent.count, doc.modified == old.modified {
                 doc.content = oldContent
+            }
+            if doc.customFields == nil, let old = snapshot.documents[doc.id] {
+                doc.customFields = old.customFields
             }
             snapshot.documents[doc.id] = doc
             stored.append(doc)

@@ -230,7 +230,7 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
             .init(name: "page", value: String(page)),
             .init(name: "page_size", value: String(pageSize)),
             .init(name: "ordering", value: "id"),
-            .init(name: "fields", value: "id,title,correspondent,document_type,tags,created,added,modified,content,page_count,original_file_name"),
+            .init(name: "fields", value: "id,title,correspondent,document_type,tags,created,added,modified,content,page_count,original_file_name,custom_fields"),
         ]
         if let modifiedAfter { query.append(.init(name: "modified__gt", value: modifiedAfter)) }
         return try await get("api/documents/", query: query)
@@ -248,6 +248,14 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
 
     func allNamed(_ endpoint: String) async throws -> [NamedItem] {
         let page: Page<NamedItem> = try await get("api/\(endpoint)/", query: [
+            .init(name: "page_size", value: "100000"),
+            .init(name: "ordering", value: "name"),
+        ])
+        return page.results
+    }
+
+    func customFields() async throws -> [CustomFieldDefinition] {
+        let page: Page<CustomFieldDefinition> = try await get("api/custom_fields/", query: [
             .init(name: "page_size", value: "100000"),
             .init(name: "ordering", value: "name"),
         ])

@@ -32,9 +32,12 @@ struct Document: Codable, Identifiable, Hashable {
     let pageCount: Int?
     let originalFileName: String?
     var searchHit: SearchHit?
+    /// `nil`, wenn die Antwort die Felder nicht enthielt (z. B. Listen mit `fields=`).
+    var customFields: [CustomFieldInstance]?
 
     enum CodingKeys: String, CodingKey {
         case id, title, correspondent, tags, created, added, modified, content
+        case customFields = "custom_fields"
         case documentType = "document_type"
         case pageCount = "page_count"
         case originalFileName = "original_file_name"
@@ -125,6 +128,164 @@ struct Profile: Decodable {
     }
 }
 
+// MARK: - Benutzerdefinierte Felder
+
+/// Wert eines benutzerdefinierten Felds, so wie Paperless ihn als JSON liefert.
+enum FieldValue: Codable, Hashable {
+    case null
+    case bool(Bool)
+    case int(Int)
+    case double(Double)
+    case string(String)
+    case ids([Int])
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if try c.decodeNil() { self = .null }
+        else if let v = try? c.decode(Bool.self) { self = .bool(v) }
+        else if let v = try? c.decode(Int.self) { self = .int(v) }
+        else if let v = try? c.decode(Double.self) { self = .double(v) }
+        else if let v = try? c.decode(String.self) { self = .string(v) }
+        else if let v = try? c.decode([Int].self) { self = .ids(v) }
+        else { self = .null }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .null: try c.encodeNil()
+        case let .bool(v): try c.encode(v)
+        case let .int(v): try c.encode(v)
+        case let .double(v): try c.encode(v)
+        case let .string(v): try c.encode(v)
+        case let .ids(v): try c.encode(v)
+        }
+    }
+
+    var isNull: Bool { self == .null }
+
+    var string: String? {
+        switch self {
+        case let .string(v): v
+        case let .int(v): String(v)
+        case let .double(v): String(v)
+        default: nil
+        }
+    }
+}
+
+struct CustomFieldInstance: Codable, Hashable {
+    var field: Int
+    var value: FieldValue
+}
+
+struct CustomFieldDefinition: Codable, Identifiable, Hashable {
+    enum Kind: String {
+        case string, url, date, boolean, integer, float, monetary, documentlink, select, longtext
+    }
+
+    struct Option: Codable, Hashable {
+        let id: FieldValue
+        let label: String
+    }
+
+    let id: Int
+    let name: String
+    let dataType: String
+    let options: [Option]
+    let defaultCurrency: String?
+
+    var kind: Kind? { Kind(rawValue: dataType) }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name
+        case dataType = "data_type"
+        case extraData = "extra_data"
+    }
+
+    private struct Extra: Codable {
+        var selectOptions: [Option]?
+        var defaultCurrency: String?
+
+        enum CodingKeys: String, CodingKey {
+            case selectOptions = "select_options"
+            case defaultCurrency = "default_currency"
+        }
+
+        init(selectOptions: [Option]?, defaultCurrency: String?) {
+            self.selectOptions = selectOptions
+            self.defaultCurrency = defaultCurrency
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            defaultCurrency = try? c.decodeIfPresent(String.self, forKey: .defaultCurrency)
+            if let options = try? c.decodeIfPresent([Option].self, forKey: .selectOptions) {
+                selectOptions = options
+            } else if let labels = try? c.decodeIfPresent([String?].self, forKey: .selectOptions) {
+                // Vor Paperless 2.14: Liste von Namen, der Wert ist der Index.
+                selectOptions = labels.enumerated().map { Option(id: .int($0.offset), label: $0.element ?? "") }
+            }
+        }
+    }
+
+    init(id: Int, name: String, kind: Kind, options: [Option] = [], defaultCurrency: String? = nil) {
+        self.id = id
+        self.name = name
+        dataType = kind.rawValue
+        self.options = options
+        self.defaultCurrency = defaultCurrency
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        dataType = try c.decode(String.self, forKey: .dataType)
+        let extra = try? c.decodeIfPresent(Extra.self, forKey: .extraData)
+        options = extra?.selectOptions ?? []
+        defaultCurrency = extra?.defaultCurrency.flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(dataType, forKey: .dataType)
+        try c.encode(Extra(selectOptions: options, defaultCurrency: defaultCurrency), forKey: .extraData)
+    }
+
+    func label(for option: FieldValue) -> String? {
+        options.first { $0.id == option }?.label
+    }
+}
+
+/// Geldbeträge speichert Paperless als "EUR12.50" (ältere Werte auch als reine Zahl).
+enum Monetary {
+    static func parse(_ value: FieldValue) -> (currency: String?, amount: Decimal?) {
+        switch value {
+        case let .int(v): return (nil, Decimal(v))
+        case let .double(v): return (nil, Decimal(string: String(v)))
+        case let .string(text):
+            let letters = text.prefix { $0.isLetter }
+            let currency = letters.count == 3 ? String(letters) : nil
+            let number = text.dropFirst(letters.count)
+            return (currency, number.isEmpty ? nil : Decimal(string: String(number), locale: Locale(identifier: "en_US_POSIX")))
+        default: return (nil, nil)
+        }
+    }
+
+    static func value(currency: String, amount: Decimal?) -> FieldValue {
+        guard let amount else { return .null }
+        var rounded = Decimal()
+        var input = amount
+        NSDecimalRound(&rounded, &input, 2, .plain)
+        let number = String(format: "%.2f", locale: Locale(identifier: "en_US_POSIX"),
+                            NSDecimalNumber(decimal: rounded).doubleValue)
+        return .string(currency.uppercased() + number)
+    }
+}
+
 /// Änderungen an einem Dokument. Leere Werte werden bewusst als `null` gesendet, damit sich
 /// Korrespondent und Typ auch entfernen lassen.
 struct DocumentUpdate: Encodable, Equatable {
@@ -133,6 +294,9 @@ struct DocumentUpdate: Encodable, Equatable {
     var correspondent: Int?
     var documentType: Int?
     var tags: [Int]
+    /// `nil`, solange die Felder des Dokuments nicht bekannt sind: dann nichts daran ändern.
+    var customFields: [CustomFieldInstance]?
+    private let originalCustomFields: [CustomFieldInstance]?
 
     init(_ doc: Document) {
         title = doc.title
@@ -140,11 +304,14 @@ struct DocumentUpdate: Encodable, Equatable {
         correspondent = doc.correspondent
         documentType = doc.documentType
         tags = doc.tags
+        customFields = doc.customFields
+        originalCustomFields = doc.customFields
     }
 
     enum CodingKeys: String, CodingKey {
         case title, created, correspondent, tags
         case documentType = "document_type"
+        case customFields = "custom_fields"
     }
 
     func encode(to encoder: Encoder) throws {
@@ -154,6 +321,10 @@ struct DocumentUpdate: Encodable, Equatable {
         try c.encode(correspondent, forKey: .correspondent)
         try c.encode(documentType, forKey: .documentType)
         try c.encode(tags, forKey: .tags)
+        // Paperless ersetzt die komplette Liste; nur senden, wenn sich etwas geändert hat.
+        if let customFields, originalCustomFields != nil, customFields != originalCustomFields {
+            try c.encode(customFields, forKey: .customFields)
+        }
     }
 }
 
