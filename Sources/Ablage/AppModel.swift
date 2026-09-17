@@ -19,7 +19,7 @@ final class AppModel {
     var showLogin = false {
         didSet { if showLogin { Task { await thumbnails.setBlocked(true) } } }
     }
-    var loginHint = String(localized: "Melde dich über Pangolin an. Das Fenster schließt sich, sobald Paperless erreichbar ist.")
+    var loginHint = String(localized: "Melde dich an. Das Fenster schließt sich, sobald Paperless erreichbar ist.")
 
     var serverURL: URL?
     var profile: Profile?
@@ -116,8 +116,7 @@ final class AppModel {
     /// nicht das Fenster, und die späteren Zugriffe kommen aus dem Cache.
     private func preloadSecrets() async {
         guard let serverURL else { return }
-        let accounts = [serverURL.absoluteString, "pangolin@" + serverURL.absoluteString]
-            .filter { secretCache[$0] == nil }
+        let accounts = [serverURL.absoluteString].filter { secretCache[$0] == nil }
         guard !accounts.isEmpty else { return }
         let values = await Task.detached(priority: .userInitiated) {
             accounts.map { Keychain.token(for: $0) ?? "" }
@@ -137,20 +136,6 @@ final class AppModel {
             guard let serverURL else { return }
             setSecret(newValue, serverURL.absoluteString)
             client?.token = newValue
-        }
-    }
-
-    var pangolinTokenID: String {
-        get { defaults.string(forKey: "pangolinTokenID") ?? "" }
-        set { defaults.set(newValue, forKey: "pangolinTokenID"); client?.pangolinTokenID = newValue }
-    }
-
-    var pangolinToken: String {
-        get { serverURL.map { secret("pangolin@" + $0.absoluteString) } ?? "" }
-        set {
-            guard let serverURL else { return }
-            setSecret(newValue, "pangolin@" + serverURL.absoluteString)
-            client?.pangolinToken = newValue
         }
     }
 
@@ -183,8 +168,6 @@ final class AppModel {
         phase = .connecting
         await preloadSecrets()
         let client = PaperlessClient(baseURL: serverURL, token: apiToken)
-        client.pangolinTokenID = pangolinTokenID
-        client.pangolinToken = pangolinToken
         self.client = client
         let store = self.store?.root.lastPathComponent == client.host ? self.store! : LibraryStore(host: client.host)
         self.store = store
@@ -194,11 +177,11 @@ final class AppModel {
         do {
             try await finishConnecting(client)
         } catch ClientError.pangolinLoginRequired {
-            loginHint = String(localized: "Pangolin verlangt eine Anmeldung. Das Fenster schließt sich, sobald Paperless erreichbar ist.")
+            loginHint = String(localized: "Der Zugang verlangt eine Anmeldung. Das Fenster schließt sich, sobald Paperless erreichbar ist.")
             showLogin = true
-            await showOffline(String(localized: "Anmeldung bei Pangolin erforderlich."))
+            await showOffline(String(localized: "Anmeldung erforderlich."))
         } catch ClientError.paperlessUnauthorized {
-            loginHint = String(localized: "Pangolin lässt dich durch. Jetzt noch bei Paperless anmelden.")
+            loginHint = String(localized: "Jetzt noch bei Paperless anmelden.")
             showLogin = true
             await showOffline(String(localized: "Paperless hat die Anmeldung abgelehnt."))
         } catch {
@@ -244,9 +227,24 @@ final class AppModel {
         do {
             try await finishConnecting(client)
         } catch ClientError.paperlessUnauthorized {
-            loginHint = String(localized: "Pangolin lässt dich durch. Jetzt noch bei Paperless anmelden.")
+            loginHint = String(localized: "Jetzt noch bei Paperless anmelden.")
         } catch {
             // Noch mitten im Login-Ablauf, einfach weiter warten.
+        }
+    }
+
+    /// Anmeldung mit Benutzername und Passwort: holt den API-Token von Paperless.
+    func signIn(username: String, password: String) async -> Bool {
+        guard let client else { return false }
+        do {
+            apiToken = try await client.obtainToken(username: username, password: password)
+            client.token = apiToken
+            await connect()
+            return true
+        } catch {
+            Log.app.error("Anmeldung fehlgeschlagen: \(String(describing: error), privacy: .public)")
+            toast = String(localized: "Anmeldung fehlgeschlagen: \(error.localizedDescription)")
+            return false
         }
     }
 
@@ -266,8 +264,6 @@ final class AppModel {
         syncTask?.cancel()
         await CookieBridge.clearAll()
         apiToken = ""
-        pangolinToken = ""
-        pangolinTokenID = ""
         defaults.removeObject(forKey: "serverURL")
         await store?.clear()
         await SpotlightIndexer.removeAll()
@@ -408,7 +404,7 @@ final class AppModel {
         } catch ClientError.pangolinLoginRequired {
             guard generation == loadGeneration else { return }
             nextPage = page
-            loginHint = String(localized: "Die Pangolin-Session ist abgelaufen. Bitte neu anmelden.")
+            loginHint = String(localized: "Die Sitzung ist abgelaufen. Bitte neu anmelden.")
             showLogin = true
         } catch {
             guard generation == loadGeneration else { return }
@@ -754,7 +750,7 @@ final class AppModel {
         }
         let failed = imports.prefix(files.count).filter(\.isFailed).count
         if failed > 0 {
-            toast = String(localized: "\(failed) von \(files.count) Importen fehlgeschlagen. Details unter Ablage → Importe.")
+            toast = String(localized: "\(failed) von \(files.count) Importen fehlgeschlagen. Details unter Fundus → Importe.")
         } else {
             toast = files.count == 1
                 ? String(localized: "Dokument importiert.")
@@ -959,8 +955,8 @@ final class AppModel {
     }
 
     func handle(url: URL) {
-        // ablage://document/123
-        guard url.scheme == "ablage", url.host() == "document",
+        // ablage://document/123 oder fundus://document/123
+        guard url.scheme == "ablage" || url.scheme == "fundus", url.host() == "document",
               let id = Int(url.lastPathComponent) else { return }
         Task { await open(documentID: id) }
     }

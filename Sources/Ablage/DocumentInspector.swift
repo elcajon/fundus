@@ -276,7 +276,7 @@ struct MenuBarContent: View {
         }
         Divider()
         Button("Schnellsuche (\(Shortcut.current.label))") { QuickSearchController.shared.show() }
-        Button("Ablage öffnen") { model.showMainWindow() }
+        Button("Fundus öffnen") { model.showMainWindow() }
         Button("Eingang anzeigen") {
             model.showMainWindow()
             if !model.searchTokens.contains(.inbox) { model.toggleInbox() }
@@ -298,7 +298,7 @@ struct MenuBarContent: View {
             openSettings()
         }
         .keyboardShortcut(",")
-        Button("Ablage beenden") { AppSettings.quit() }
+        Button("Fundus beenden") { AppSettings.quit() }
             .keyboardShortcut("q")
     }
 }

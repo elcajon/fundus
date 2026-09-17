@@ -96,7 +96,7 @@ struct LibraryView: View {
     private var readerDocument: Document? { model.document(model.readerID) }
 
     private var title: String {
-        readerDocument?.title ?? "Ablage"
+        readerDocument?.title ?? "Fundus"
     }
 
     private var subtitle: String {

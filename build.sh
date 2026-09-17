@@ -16,16 +16,16 @@ python3 scripts/make-strings.py
 swift build -c release
 bin=$(swift build -c release --show-bin-path)/Ablage
 
-app=build/Ablage.app
+app=build/Fundus.app
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-cp "$bin" "$app/Contents/MacOS/Ablage"
+cp "$bin" "$app/Contents/MacOS/Fundus"
 
 # SwiftPM trägt als SDK-Version die Mindestversion (15.0) ein. macOS entscheidet daran, ob die App
 # das aktuelle Design (Liquid Glass) bekommt, deshalb die echte SDK-Version nachtragen.
 sdk_version=$(xcrun --sdk "${SDKROOT:-macosx}" --show-sdk-version)
 vtool -set-build-version macos 15.0 "$sdk_version" -replace \
-  -output "$app/Contents/MacOS/Ablage" "$app/Contents/MacOS/Ablage"
+  -output "$app/Contents/MacOS/Fundus" "$app/Contents/MacOS/Fundus"
 
 version=${VERSION:-0.1.0}
 cat > "$app/Contents/Info.plist" <<PLIST
@@ -33,10 +33,11 @@ cat > "$app/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Ablage</string>
-  <key>CFBundleDisplayName</key><string>Ablage</string>
+  <key>CFBundleName</key><string>Fundus</string>
+  <key>CFBundleDisplayName</key><string>Fundus</string>
+  <!-- Die Kennung bleibt: daran hängen Schlüsselbund-Freigabe, Einstellungen und Anmeldeobjekt. -->
   <key>CFBundleIdentifier</key><string>de.max-venz.ablage</string>
-  <key>CFBundleExecutable</key><string>Ablage</string>
+  <key>CFBundleExecutable</key><string>Fundus</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$version</string>
   <key>CFBundleVersion</key><string>$version</string>
@@ -48,7 +49,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
   <array>
     <dict>
       <key>CFBundleURLName</key><string>de.max-venz.ablage.document</string>
-      <key>CFBundleURLSchemes</key><array><string>ablage</string></array>
+      <key>CFBundleURLSchemes</key><array><string>ablage</string><string>fundus</string></array>
     </dict>
   </array>
   <key>NSHumanReadableCopyright</key><string>Max Venz</string>
@@ -61,21 +62,21 @@ cat > "$app/Contents/Info.plist" <<PLIST
 PLIST
 
 # Anmeldeobjekt: startet Ablage beim Anmelden still (ohne Fenster).
-launcher="$app/Contents/Library/LoginItems/AblageLauncher.app"
+launcher="$app/Contents/Library/LoginItems/FundusLauncher.app"
 mkdir -p "$launcher/Contents/MacOS"
 swiftc -O -sdk "${SDKROOT:-$(xcrun --show-sdk-path)}" -target "$(uname -m)-apple-macos15.0" \
-  Launcher/main.swift -o "$launcher/Contents/MacOS/AblageLauncher"
+  Launcher/main.swift -o "$launcher/Contents/MacOS/FundusLauncher"
 vtool -set-build-version macos 15.0 "$sdk_version" -replace \
-  -output "$launcher/Contents/MacOS/AblageLauncher" "$launcher/Contents/MacOS/AblageLauncher"
+  -output "$launcher/Contents/MacOS/FundusLauncher" "$launcher/Contents/MacOS/FundusLauncher"
 cat > "$launcher/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>AblageLauncher</string>
-  <key>CFBundleDisplayName</key><string>Ablage</string>
+  <key>CFBundleName</key><string>FundusLauncher</string>
+  <key>CFBundleDisplayName</key><string>Fundus</string>
   <key>CFBundleIdentifier</key><string>de.max-venz.ablage.launcher</string>
-  <key>CFBundleExecutable</key><string>AblageLauncher</string>
+  <key>CFBundleExecutable</key><string>FundusLauncher</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$version</string>
   <key>CFBundleVersion</key><string>$version</string>
@@ -85,9 +86,13 @@ cat > "$launcher/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-if [[ -f Resources/AppIcon.icns ]]; then
-  cp Resources/AppIcon.icns "$app/Contents/Resources/"
-fi
+# Icons (hell und dunkel) und das Menüleisten-Symbol frisch rendern.
+icons=.build/icons
+rm -rf "$icons" && mkdir -p "$icons"
+swift scripts/make-icon.swift "$icons"
+iconutil -c icns "$icons/AppIcon.iconset" -o "$app/Contents/Resources/AppIcon.icns"
+iconutil -c icns "$icons/AppIconDark.iconset" -o "$app/Contents/Resources/AppIconDark.icns"
+cp "$icons/MenuBarIcon.png" "$icons/MenuBarIcon@2x.png" "$app/Contents/Resources/"
 cp -R Resources/*.lproj "$app/Contents/Resources/"
 
 # Signieren mit einer eigenen, stabilen Identität. Bei einer Ad-hoc-Signatur ändert sich der

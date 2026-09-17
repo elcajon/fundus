@@ -74,7 +74,7 @@ private struct GeneralSettings: View {
             } header: {
                 Text("Programm")
             } footer: {
-                Text("Mit Menüleisten-Symbol läuft Ablage weiter: ⌘Q schließt nur die Fenster und blendet das Dock-Symbol aus, „Ablage beenden“ im Menüleisten-Menü beendet die App. Nur in der Menüleiste startet Ablage ohne Fenster und ohne Dock-Symbol, beim Anmelden immer. Die Schnellsuche öffnet sich mit ihrem Kurzbefehl aus jeder App und zeigt den Treffer in Ablage. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen.").settingsFooter()
+                Text("Mit Menüleisten-Symbol läuft Fundus weiter: ⌘Q schließt nur die Fenster und blendet das Dock-Symbol aus, „Fundus beenden“ im Menüleisten-Menü beendet die App. Nur in der Menüleiste startet Fundus ohne Fenster und ohne Dock-Symbol, beim Anmelden immer. Die Schnellsuche öffnet sich mit ihrem Kurzbefehl aus jeder App und zeigt den Treffer in Fundus. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen.").settingsFooter()
             }
         }
         .formStyle(.grouped)
@@ -112,7 +112,7 @@ private struct NotificationSettings: View {
                 }
                 .disabled(!notify)
             } footer: {
-                Text("Funktioniert, solange Ablage läuft.").settingsFooter()
+                Text("Funktioniert, solange Fundus läuft.").settingsFooter()
             }
         }
         .formStyle(.grouped)
@@ -136,7 +136,7 @@ private struct LibrarySettings: View {
                     LabeledContent("In Spotlight", value: String(localized: "\(indexed) Dokumente"))
                 }
             } footer: {
-                Text("Titel, Text und Tags werden an Spotlight gemeldet. Ein Treffer öffnet das Dokument in Ablage.").settingsFooter()
+                Text("Titel, Text und Tags werden an Spotlight gemeldet. Ein Treffer öffnet das Dokument in Fundus.").settingsFooter()
             }
 
             Section {
@@ -167,7 +167,7 @@ private struct LibrarySettings: View {
             } header: {
                 Text("Offline-Kopie")
             } footer: {
-                Text("Ablage hält Titel, Text und Vorschaubilder aller Dokumente sowie zuletzt geöffnete Dokumente lokal vor. Ohne Verbindung lassen sich so die Bibliothek durchsuchen und bereits geöffnete Dokumente lesen.").settingsFooter()
+                Text("Fundus hält Titel, Text und Vorschaubilder aller Dokumente sowie zuletzt geöffnete Dokumente lokal vor. Ohne Verbindung lassen sich so die Bibliothek durchsuchen und bereits geöffnete Dokumente lesen.").settingsFooter()
             }
         }
         .formStyle(.grouped)
@@ -190,8 +190,9 @@ private struct LibrarySettings: View {
 private struct ConnectionSettings: View {
     @Environment(AppModel.self) private var model
     @State private var apiToken = ""
-    @State private var pangolinID = ""
-    @State private var pangolinSecret = ""
+    @State private var username = ""
+    @State private var password = ""
+    @State private var isSigningIn = false
 
     var body: some View {
         Form {
@@ -212,12 +213,26 @@ private struct ConnectionSettings: View {
             }
 
             Section {
-                TextField("Token-ID", text: $pangolinID)
-                SecureField("Token", text: $pangolinSecret)
+                TextField("Benutzername", text: $username)
+                SecureField("Passwort", text: $password)
+                HStack {
+                    Button("Anmelden") {
+                        isSigningIn = true
+                        Task {
+                            if await model.signIn(username: username, password: password) {
+                                apiToken = model.apiToken
+                                password = ""
+                            }
+                            isSigningIn = false
+                        }
+                    }
+                    .disabled(username.isEmpty || password.isEmpty || isSigningIn)
+                    if isSigningIn { ProgressView().controlSize(.small) }
+                }
             } header: {
-                Text("Pangolin Access Token (optional)")
+                Text("Anmeldung")
             } footer: {
-                Text("Alternative zum Login-Fenster. In Pangolin unter Resource → Share Link anlegen.").settingsFooter()
+                Text("Für Paperless-Konten mit Passwort: Fundus holt sich damit einen API-Token und merkt sich nur diesen. Steht Paperless hinter einem SSO-Zugang wie Pangolin, öffnet sich stattdessen ein Anmeldefenster.").settingsFooter()
             }
 
             HStack {
@@ -226,8 +241,6 @@ private struct ConnectionSettings: View {
                 Spacer()
                 Button("Sichern") {
                     model.apiToken = apiToken
-                    model.pangolinTokenID = pangolinID
-                    model.pangolinToken = pangolinSecret
                     Task { await model.connect() }
                 }
                 .keyboardShortcut(.defaultAction)
@@ -237,8 +250,6 @@ private struct ConnectionSettings: View {
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {
             apiToken = model.apiToken
-            pangolinID = model.pangolinTokenID
-            pangolinSecret = model.pangolinToken
         }
     }
 }

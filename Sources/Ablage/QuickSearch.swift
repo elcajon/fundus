@@ -3,7 +3,7 @@ import Carbon.HIToolbox
 import SwiftUI
 
 /// Schnellsuche als schwebendes Fenster über allen Apps (wie „Quick Access“ bei 1Password).
-/// Sucht in der lokalen Kopie und öffnet den Treffer im Ablage-Fenster.
+/// Sucht in der lokalen Kopie und öffnet den Treffer im Fundus-Fenster.
 @MainActor
 final class QuickSearchController {
     static let shared = QuickSearchController()
@@ -283,14 +283,14 @@ private struct QuickSearchView: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 20, weight: .medium))
                     .foregroundStyle(.secondary)
-                TextField("Ablage durchsuchen", text: $state.text)
+                TextField("Fundus durchsuchen", text: $state.text)
                     .textFieldStyle(.plain)
                     .font(.system(size: 22))
                     .focused($focused)
                     .onSubmit(openSelection)
                     .onKeyPress(.downArrow) { move(1); return .handled }
                     .onKeyPress(.upArrow) { move(-1); return .handled }
-                    .accessibilityLabel(Text("Ablage durchsuchen"))
+                    .accessibilityLabel(Text("Fundus durchsuchen"))
                 if !state.text.isEmpty {
                     Button { state.text = "" } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.plain)

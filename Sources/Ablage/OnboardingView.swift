@@ -12,9 +12,9 @@ struct OnboardingView: View {
                 Image(systemName: "doc.on.doc")
                     .font(.system(size: 44, weight: .light))
                     .foregroundStyle(.tint)
-                Text("Ablage")
+                Text("Fundus")
                     .font(.system(size: 34, weight: .semibold, design: .serif))
-                Text("Dein Paperless-Archiv, auch hinter Pangolin.")
+                Text("Dein Paperless-Archiv, auch hinter einem SSO-Zugang.")
                     .foregroundStyle(.secondary)
             }
 

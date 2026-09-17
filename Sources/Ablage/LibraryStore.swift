@@ -194,7 +194,7 @@ actor LibraryStore {
     }
 }
 
-/// Meldet Dokumente an Spotlight. Ein Treffer öffnet Ablage über `ablage://document/<id>`.
+/// Meldet Dokumente an Spotlight. Ein Treffer öffnet Fundus über `ablage://document/<id>`.
 enum SpotlightIndexer {
     static let domain = "de.max-venz.ablage.documents"
     static let enabledKey = "spotlightEnabled"

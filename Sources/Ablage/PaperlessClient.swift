@@ -88,9 +88,6 @@ enum ResponseKind: Equatable {
 final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     let baseURL: URL
     var token: String?
-    /// Optionaler Pangolin-Access-Token als Alternative zum SSO-Cookie.
-    var pangolinTokenID: String?
-    var pangolinToken: String?
     /// Paperless-Version aus dem `X-Version`-Header, z. B. "2.18.4".
     private(set) var serverVersion: String?
 
@@ -139,10 +136,6 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         req.setValue("application/json; version=9", forHTTPHeaderField: "Accept")
         if let token, !token.isEmpty {
             req.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
-        }
-        if let id = pangolinTokenID, !id.isEmpty, let secret = pangolinToken, !secret.isEmpty {
-            req.setValue(id, forHTTPHeaderField: "P-Access-Token-Id")
-            req.setValue(secret, forHTTPHeaderField: "P-Access-Token")
         }
         return req
     }
@@ -252,6 +245,19 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
             .init(name: "ordering", value: "name"),
         ])
         return page.results
+    }
+
+    /// Holt einen API-Token mit Benutzername und Passwort (`/api/token/`).
+    /// Läuft bewusst ohne Wiederholung: Eine falsche Eingabe ergibt einen 4xx, und davon
+    /// sollen keine Serien entstehen.
+    func obtainToken(username: String, password: String) async throws -> String {
+        var req = request("api/token/", method: "POST")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(["username": username, "password": password])
+        let (data, response) = try await session.data(for: req)
+        _ = try validate(data, response, for: req)
+        struct Answer: Decodable { let token: String }
+        return try JSONDecoder().decode(Answer.self, from: data).token
     }
 
     func customFields() async throws -> [CustomFieldDefinition] {
