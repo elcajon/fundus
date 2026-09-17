@@ -2,18 +2,18 @@
 import PackageDescription
 
 let package = Package(
-    name: "Ablage",
+    name: "Fundus",
     defaultLocalization: "de",
     platforms: [.macOS("15.0")],
     targets: [
         .executableTarget(
-            name: "Ablage",
-            path: "Sources/Ablage"
+            name: "Fundus",
+            path: "Sources/Fundus"
         ),
         .testTarget(
-            name: "AblageTests",
-            dependencies: ["Ablage"],
-            path: "Tests/AblageTests"
+            name: "FundusTests",
+            dependencies: ["Fundus"],
+            path: "Tests/FundusTests"
         ),
     ]
 )

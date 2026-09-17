@@ -6,6 +6,7 @@
     <img src="https://img.shields.io/badge/macOS-15%2B-000000?style=flat-square" alt="macOS 15+">
     <img src="https://img.shields.io/badge/SwiftUI-Liquid%20Glass-1d4ed8?style=flat-square" alt="SwiftUI">
     <img src="https://img.shields.io/badge/Xcode-not%20required-6e6e73?style=flat-square" alt="No Xcode required">
+    <a href="https://github.com/elcajon/fundus/actions/workflows/ci.yml"><img src="https://github.com/elcajon/fundus/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   </p>
 </div>
 
@@ -49,7 +50,7 @@ Fundus shows your Paperless-ngx archive the way a Mac app should: one window, yo
 
 ## Install
 
-Download the `.dmg` from [Releases](../../releases) and drag Fundus to your Applications folder, or build it yourself (below). The app is signed with a self-made certificate, so on first launch use **right click → Open** and confirm once.
+Download the `.dmg` from [Releases](https://github.com/elcajon/fundus/releases) and drag Fundus to your Applications folder, or build it yourself (below). Release builds come straight from CI and are signed ad-hoc, not notarized by Apple — on first launch use **right click → Open** and confirm once.
 
 ## Connecting
 
@@ -96,6 +97,10 @@ open build/Fundus.app
 
 - `build.sh` builds against the newest macOS 26 SDK (in the 27 SDK `@State` is a macro whose plugin ships only with Xcode), writes the real SDK version into the binary with `vtool` so macOS grants the current design, renders the icons, assembles the bundle and signs it with hardened runtime using a self-made certificate in `.signing/` — your login keychain is left alone.
 - `test.sh` runs the Swift Testing suite and also verifies that every visible string has an English translation. German is the development language; the app ships German and English.
+
+## Releases
+
+`.github/workflows/ci.yml` runs the tests and a full build on every push. Pushing a tag (or running the *Release* workflow with a version) builds the app on a macOS runner, packs a DMG and publishes it as a GitHub release with its SHA-256 checksum.
 
 ## How it is built
 

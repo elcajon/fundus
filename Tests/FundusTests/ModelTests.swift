@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import Ablage
+@testable import Fundus
 
 @Suite("Paperless-Antworten lesen")
 struct DecodingTests {
@@ -204,7 +204,7 @@ struct SpotlightTests {
 
 @Suite("Lokale Kopie")
 struct LibraryStoreTests {
-    let base = FileManager.default.temporaryDirectory.appending(path: "AblageTests-\(UUID().uuidString)")
+    let base = FileManager.default.temporaryDirectory.appending(path: "FundusTests-\(UUID().uuidString)")
 
     func doc(_ id: Int, content: String?, modified: String) -> Document {
         Document(id: id, title: "D\(id)", correspondent: nil, documentType: nil, tags: [], created: "2026-01-0\(id)",

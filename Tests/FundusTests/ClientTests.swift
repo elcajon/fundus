@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import Ablage
+@testable import Fundus
 
 @Suite("Antworten einordnen")
 struct ResponseKindTests {

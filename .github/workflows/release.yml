@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, e.g. 0.1.0 (creates the tag as well)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish the DMG
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Test
+        run: ./test.sh
+
+      # Ohne Apple-Entwicklerzertifikat: Ad-hoc-Signatur mit Hardened Runtime.
+      # Beim ersten Start deshalb Rechtsklick → Öffnen.
+      - name: Build app
+        env:
+          SIGN_IDENTITY: "-"
+          VERSION: ${{ steps.version.outputs.version }}
+        run: ./build.sh
+
+      - name: Create DMG
+        run: |
+          stage="$(mktemp -d)/Fundus"
+          mkdir -p "$stage"
+          ditto build/Fundus.app "$stage/Fundus.app"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create -volname "Fundus" -srcfolder "$stage" -fs APFS -format ULFO -ov \
+            "build/Fundus-${{ steps.version.outputs.version }}.dmg"
+          shasum -a 256 "build/Fundus-${{ steps.version.outputs.version }}.dmg" | tee build/checksum.txt
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          tag="${{ steps.version.outputs.tag }}"
+          notes=$(cat <<TEXT
+          ## Install
+
+          1. Open the DMG and drag **Fundus** to your Applications folder.
+          2. On first launch: right click → Open → Open. The app is signed ad-hoc, not notarized by Apple.
+          3. Enter your Paperless address and sign in.
+
+          Requires macOS 15 or newer.
+
+          \`\`\`
+          $(cat build/checksum.txt)
+          \`\`\`
+          TEXT
+          )
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --title "Fundus $version" --notes "$notes" --target "$GITHUB_SHA"
+          fi
+          gh release upload "$tag" "build/Fundus-$version.dmg" --clobber
