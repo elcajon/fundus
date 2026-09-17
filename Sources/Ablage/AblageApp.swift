@@ -128,6 +128,7 @@ enum AppSettings {
         UserDefaults.standard.register(defaults: [
             menuBarKey: true,
             hideDockKey: true,
+            QuickSearchController.enabledKey: true,
             SpotlightIndexer.enabledKey: true,
         ])
         NewDocumentWatcher.registerDefaults()
@@ -138,10 +139,17 @@ enum AppSettings {
         UserDefaults.standard.bool(forKey: hideDockKey) && UserDefaults.standard.bool(forKey: menuBarKey)
     }
 
+    /// Vom Anmeldeobjekt gestartet: still, ohne Fenster und Dock-Symbol.
+    static let launchedSilently = CommandLine.arguments.contains("--silent")
+
     /// Beim Start ohne Fenster, sofern schon ein Server eingerichtet ist.
     static var startsInMenuBar: Bool {
         registerDefaults()
-        return menuBarOnly && UserDefaults.standard.string(forKey: "serverURL") != nil
+        return (menuBarOnly || launchedSilently) && UserDefaults.standard.string(forKey: "serverURL") != nil
+    }
+
+    @MainActor static func applyLaunchPolicy() {
+        NSApp.setActivationPolicy(menuBarOnly || startsInMenuBar ? .accessory : .regular)
     }
 
     /// Mit Menüleisten-Symbol beendet ⌘Q die App nicht, sondern zieht sie in die Menüleiste zurück.
@@ -173,15 +181,32 @@ enum AppSettings {
         NSApp.terminate(nil)
     }
 
+    /// Anmeldeobjekt ist die Hilfs-App im Paket; sie startet Ablage mit `--silent`.
+    static let launcher = SMAppService.loginItem(identifier: "de.max-venz.ablage.launcher")
+
     static var launchesAtLogin: Bool {
-        SMAppService.mainApp.status == .enabled
+        launcher.status == .enabled || SMAppService.mainApp.status == .enabled
     }
 
     static func setLaunchAtLogin(_ enabled: Bool) throws {
         if enabled {
-            try SMAppService.mainApp.register()
+            try launcher.register()
+            try? SMAppService.mainApp.unregister()
         } else {
+            try? launcher.unregister()
+            try? SMAppService.mainApp.unregister()
+        }
+    }
+
+    /// Frühere Versionen haben die App selbst eingetragen; auf die Hilfs-App umstellen.
+    static func migrateLoginItem() {
+        guard SMAppService.mainApp.status == .enabled else { return }
+        do {
+            try launcher.register()
             try SMAppService.mainApp.unregister()
+            Log.app.info("Anmeldeobjekt auf die Hilfs-App umgestellt")
+        } catch {
+            Log.app.error("Anmeldeobjekt nicht umgestellt: \(String(describing: error), privacy: .public)")
         }
     }
 }
@@ -197,8 +222,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        AppSettings.applyDockPolicy()
+        AppSettings.applyLaunchPolicy()
         if !AppSettings.startsInMenuBar { NSApp.activate(ignoringOtherApps: true) }
+        AppSettings.migrateLoginItem()
+        QuickSearchController.shared.applySetting()
         Appearance.apply(UserDefaults.standard.string(forKey: Appearance.key))
     }
 

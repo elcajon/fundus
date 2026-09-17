@@ -23,6 +23,7 @@
 "Abgeschlossene entfernen" = "Clear finished";
 "Ablage" = "Ablage";
 "Ablage beenden" = "Quit Ablage";
+"Ablage durchsuchen" = "Search Ablage";
 "Ablage hält Titel, Text und Vorschaubilder aller Dokumente sowie zuletzt geöffnete Dokumente lokal vor. Ohne Verbindung lassen sich so die Bibliothek durchsuchen und bereits geöffnete Dokumente lesen." = "Ablage keeps titles, text and thumbnails of all documents plus recently opened documents on this Mac. Without a connection you can still search the library and read documents you have opened before.";
 "Ablage vollständig beenden" = "Quit Ablage Completely";
 "Ablage öffnen" = "Open Ablage";
@@ -117,7 +118,7 @@
 "Loslassen, um zu importieren" = "Drop to import";
 "Melde dich über Pangolin an. Das Fenster schließt sich, sobald Paperless erreichbar ist." = "Sign in through Pangolin. This window closes as soon as Paperless is reachable.";
 "Minute" = "Minute";
-"Mit Menüleisten-Symbol läuft Ablage weiter: ⌘Q schließt nur die Fenster und blendet das Dock-Symbol aus, „Ablage beenden“ im Menüleisten-Menü beendet die App. Nur in der Menüleiste startet Ablage ohne Fenster und ohne Dock-Symbol. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen." = "With the menu bar icon, Ablage keeps running: ⌘Q only closes the windows and hides the Dock icon, “Quit Ablage” in the menu bar menu quits the app. In menu bar only mode, Ablage starts without a window or Dock icon. To open at login, the app should be in the Applications folder.";
+"Mit Menüleisten-Symbol läuft Ablage weiter: ⌘Q schließt nur die Fenster und blendet das Dock-Symbol aus, „Ablage beenden“ im Menüleisten-Menü beendet die App. Nur in der Menüleiste startet Ablage ohne Fenster und ohne Dock-Symbol, beim Anmelden immer. Die Schnellsuche öffnet sich aus jeder App und zeigt den Treffer in Ablage. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen." = "With the menu bar icon, Ablage keeps running: ⌘Q only closes the windows and hides the Dock icon, “Quit Ablage” in the menu bar menu quits the app. In menu bar only mode, Ablage starts without a window or Dock icon; at login it always does. Quick Search opens from any app and shows the result in Ablage. To open at login, the app should be in the Applications folder.";
 "Mitteilungen" = "Notifications";
 "Nachsehen alle" = "Check every";
 "Neu" = "New";
@@ -141,6 +142,8 @@
 "Paperless-Version" = "Paperless version";
 "Passkeys aus dem Schlüsselbund gehen in diesem Fenster nicht, das erlaubt macOS nur signierten Browsern. Nimm \"Mit einem anderen Gerät anmelden\" (QR-Code mit dem iPhone scannen) oder einen Logincode." = "Keychain passkeys don't work in this window; macOS only allows that for signed browsers. Use \"Sign in with another device\" (scan the QR code with your iPhone) or a login code.";
 "Programm" = "App";
+"Schnellsuche (%@)" = "Quick Search (%@)";
+"Schnellsuche mit %@" = "Quick Search with %@";
 "Server" = "Server";
 "Server entfernen" = "Remove Server";
 "Serverfehler %lld: %@" = "Server error %lld: %@";
@@ -149,6 +152,7 @@
 "Speichert die Änderungen und entfernt die Eingangs-Tags (⌘↩)." = "Saves your changes and removes the inbox tags (⌘↩).";
 "Steht Paperless hinter Pangolin, öffnet sich nach dem Verbinden ein Anmeldefenster. Der API-Token aus deinem Paperless-Profil wird danach automatisch übernommen, falls es einen gibt." = "If Paperless is behind Pangolin, a sign-in window opens after connecting. The API token from your Paperless profile is then picked up automatically, if there is one.";
 "Suche in der lokalen Kopie." = "Searches the local copy.";
+"Suche leeren" = "Clear Search";
 "Suchen, #Tag, @Absender, typ:Typ" = "Search, #tag, @sender, typ:type";
 "Symbol in der Menüleiste" = "Show in menu bar";
 "Tag %@ entfernen" = "Remove tag %@";
