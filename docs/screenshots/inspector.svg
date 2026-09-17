@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" width="1280" height="800" font-family="-apple-system, SF Pro Text, Helvetica Neue, Arial, sans-serif">
+  <defs>
+    <linearGradient id="wall2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3c3f46"/><stop offset="1" stop-color="#22242a"/></linearGradient>
+    <linearGradient id="chrome2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7f6f4"/><stop offset="1" stop-color="#eceae7"/></linearGradient>
+    <filter id="cs2" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000" flood-opacity="0.18"/></filter>
+    <filter id="ws2" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="14" stdDeviation="26" flood-color="#000" flood-opacity="0.45"/></filter>
+    <clipPath id="win2"><rect x="40" y="30" width="1200" height="740" rx="14"/></clipPath>
+  </defs>
+  <rect width="1280" height="800" fill="url(#wall2)"/>
+  <g filter="url(#ws2)"><rect x="40" y="30" width="1200" height="740" rx="14" fill="#ffffff"/></g>
+
+  <g clip-path="url(#win2)">
+    <rect x="40" y="30" width="1200" height="64" fill="url(#chrome2)"/>
+    <circle cx="70" cy="62" r="6" fill="#ff5f57"/><circle cx="90" cy="62" r="6" fill="#febc2e"/><circle cx="110" cy="62" r="6" fill="#28c840"/>
+    <text x="152" y="57" font-size="14" font-weight="600" fill="#1d1d1f">2026-09-14_Stadtwerke_Jahresabrechnung</text>
+    <text x="152" y="75" font-size="12" fill="#86868b">14. September 2026</text>
+    <path d="M132 56l-7 6 7 6" stroke="#48484a" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="970" y="48" width="242" height="32" rx="16" fill="#e6e4e0"/>
+    <circle cx="990" cy="64" r="5.5" stroke="#86868b" stroke-width="1.6" fill="none"/><path d="M994 68l4 4" stroke="#86868b" stroke-width="1.6" stroke-linecap="round"/>
+    <text x="1004" y="69" font-size="12.5" fill="#86868b">Suchen, #Tag, @Absender, typ:Typ</text>
+
+    <!-- Dokumentansicht links -->
+    <g filter="url(#cs2)"><rect x="180" y="128" width="460" height="600" rx="4" fill="#fff"/></g>
+    <g transform="translate(180,128)">
+      <rect x="40" y="44" width="150" height="14" rx="4" fill="#1d4ed8"/>
+      <rect x="40" y="70" width="96" height="8" rx="3" fill="#c7c7cc"/>
+      <rect x="300" y="44" width="120" height="8" rx="3" fill="#c7c7cc"/>
+      <rect x="300" y="60" width="90" height="8" rx="3" fill="#c7c7cc"/>
+      <rect x="40" y="130" width="220" height="11" rx="3" fill="#48484a"/>
+      <g fill="#c7c7cc">
+        <rect x="40" y="160" width="380" height="7" rx="3"/><rect x="40" y="178" width="340" height="7" rx="3"/><rect x="40" y="196" width="362" height="7" rx="3"/>
+      </g>
+      <rect x="40" y="232" width="380" height="1" fill="#e5e5ea"/>
+      <g fill="#c7c7cc">
+        <rect x="40" y="252" width="150" height="7" rx="3"/><rect x="300" y="252" width="120" height="7" rx="3"/>
+        <rect x="40" y="274" width="170" height="7" rx="3"/><rect x="300" y="274" width="120" height="7" rx="3"/>
+        <rect x="40" y="296" width="134" height="7" rx="3"/><rect x="300" y="296" width="120" height="7" rx="3"/>
+      </g>
+      <rect x="40" y="330" width="380" height="1" fill="#e5e5ea"/>
+      <rect x="260" y="350" width="80" height="11" rx="3" fill="#48484a"/>
+      <rect x="352" y="350" width="68" height="11" rx="3" fill="#1d4ed8"/>
+      <g fill="#c7c7cc">
+        <rect x="40" y="420" width="380" height="7" rx="3"/><rect x="40" y="438" width="356" height="7" rx="3"/><rect x="40" y="456" width="300" height="7" rx="3"/>
+      </g>
+    </g>
+
+    <!-- Informationsspalte -->
+    <rect x="920" y="94" width="320" height="676" fill="#f2f1ef"/>
+    <line x1="920" y1="94" x2="920" y2="770" stroke="#e0dedb"/>
+    <g font-size="12.5" fill="#1d1d1f">
+      <text x="944" y="126" font-size="11" font-weight="600" fill="#86868b">DOKUMENT</text>
+      <rect x="944" y="138" width="272" height="112" rx="10" fill="#fff"/>
+      <text x="960" y="162" fill="#3a3a3c">Titel</text>
+      <text x="1200" y="162" text-anchor="end">2026-09-14_Stadtwerke…</text>
+      <line x1="960" y1="176" x2="1200" y2="176" stroke="#f0efed"/>
+      <text x="960" y="200" fill="#3a3a3c">Datum</text>
+      <text x="1200" y="200" text-anchor="end">14.09.2026</text>
+      <line x1="960" y1="214" x2="1200" y2="214" stroke="#f0efed"/>
+      <text x="960" y="238" fill="#3a3a3c">Korrespondent</text>
+      <text x="1200" y="238" text-anchor="end">Stadtwerke ⌄</text>
+
+      <text x="944" y="282" font-size="11" font-weight="600" fill="#86868b">TAGS</text>
+      <rect x="944" y="294" width="272" height="78" rx="10" fill="#fff"/>
+      <g transform="translate(960,310)">
+        <rect width="78" height="20" rx="6" fill="#d9f0e2"/><text x="9" y="14" font-size="11" fill="#1c6b47">Wohnung ✕</text>
+        <rect x="86" width="66" height="20" rx="6" fill="#fde2e1"/><text x="95" y="14" font-size="11" fill="#9b2c25">Steuer ✕</text>
+      </g>
+      <rect x="960" y="342" width="116" height="22" rx="6" fill="#f2f1ef"/>
+      <text x="972" y="357" font-size="11.5" fill="#3a3a3c">Tag hinzufügen ⌄</text>
+
+      <text x="944" y="404" font-size="11" font-weight="600" fill="#86868b">BENUTZERDEFINIERTE FELDER</text>
+      <rect x="944" y="416" width="272" height="122" rx="10" fill="#fff"/>
+      <text x="960" y="440" fill="#3a3a3c">Vertragsnummer</text>
+      <text x="1186" y="440" text-anchor="end">SW-88421</text>
+      <text x="1200" y="440" text-anchor="end" fill="#86868b">⊖</text>
+      <line x1="960" y1="454" x2="1200" y2="454" stroke="#f0efed"/>
+      <text x="960" y="478" fill="#3a3a3c">Betrag</text>
+      <text x="1186" y="478" text-anchor="end">834,20 EUR</text>
+      <text x="1200" y="478" text-anchor="end" fill="#86868b">⊖</text>
+      <line x1="960" y1="492" x2="1200" y2="492" stroke="#f0efed"/>
+      <text x="960" y="516" fill="#3a3a3c">Geprüft</text>
+      <rect x="1148" y="506" width="34" height="18" rx="9" fill="#34c759"/><circle cx="1173" cy="515" r="7" fill="#fff"/>
+      <text x="1200" y="516" text-anchor="end" fill="#86868b">⊖</text>
+
+      <rect x="944" y="552" width="272" height="44" rx="10" fill="#fff"/>
+      <text x="966" y="580" font-size="12" fill="#3a3a3c">Zurücksetzen</text>
+      <rect x="1130" y="562" width="70" height="24" rx="7" fill="#1d4ed8"/>
+      <text x="1165" y="578" font-size="12" fill="#fff" text-anchor="middle">Sichern</text>
+
+      <text x="944" y="628" font-size="11" font-weight="600" fill="#86868b">DETAILS</text>
+      <rect x="944" y="640" width="272" height="96" rx="10" fill="#fff"/>
+      <text x="960" y="664" fill="#3a3a3c">Hinzugefügt</text><text x="1200" y="664" text-anchor="end">15. Sept. 2026</text>
+      <line x1="960" y1="678" x2="1200" y2="678" stroke="#f0efed"/>
+      <text x="960" y="702" fill="#3a3a3c">Seiten</text><text x="1200" y="702" text-anchor="end">4</text>
+      <line x1="960" y1="716" x2="1200" y2="716" stroke="#f0efed"/>
+      <text x="960" y="730" fill="#1d4ed8" font-size="12">In Paperless öffnen</text>
+    </g>
+  </g>
+</svg>

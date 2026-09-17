@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fundus — a native Mac client for Paperless-ngx</title>
+<meta name="description" content="Fundus is a minimal macOS app for Paperless-ngx: global quick search, inbox editing with custom fields, offline copy, Spotlight, and it works behind an SSO gateway.">
+<link rel="icon" href="icon.png">
+<meta property="og:title" content="Fundus — a native Mac client for Paperless-ngx">
+<meta property="og:description" content="One window, your documents, a global quick search — and it works behind SSO.">
+<meta property="og:image" content="icon.png">
+<style>
+  :root {
+    --bg: #f6f5f3;
+    --bg-soft: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --line: #e2e0dd;
+    --accent: #1d4ed8;
+    --shadow: 0 18px 50px rgba(0,0,0,.12);
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --bg: #141416;
+      --bg-soft: #1d1e21;
+      --text: #f2f1ef;
+      --muted: #a1a1a6;
+      --line: #2e2f33;
+      --accent: #7aa2ff;
+      --shadow: 0 18px 50px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141416; --bg-soft: #1d1e21; --text: #f2f1ef; --muted: #a1a1a6;
+    --line: #2e2f33; --accent: #7aa2ff; --shadow: 0 18px 50px rgba(0,0,0,.5);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 16px; }
+  header { text-align: center; padding: 72px 0 40px; }
+  header img.app { width: 104px; height: 104px; border-radius: 24px; box-shadow: var(--shadow); }
+  h1 { font-size: clamp(38px, 7vw, 56px); margin: 22px 0 6px; letter-spacing: -0.02em; }
+  .tagline { font-size: clamp(17px, 2.6vw, 21px); color: var(--muted); margin: 0 auto; max-width: 30em; }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 28px; }
+  .btn {
+    display: inline-block; padding: 11px 22px; border-radius: 12px; text-decoration: none;
+    font-weight: 600; font-size: 15px; border: 1px solid transparent;
+  }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.ghost { border-color: var(--line); color: var(--text); background: var(--bg-soft); }
+  .note { color: var(--muted); font-size: 13.5px; margin-top: 14px; }
+  figure { margin: 40px 0; }
+  figure img { width: 100%; border-radius: 14px; box-shadow: var(--shadow); display: block; }
+  figcaption { color: var(--muted); font-size: 13.5px; margin-top: 10px; text-align: center; }
+  section { padding: 24px 0; }
+  h2 { font-size: 28px; letter-spacing: -0.01em; margin: 48px 0 6px; }
+  h2 + p.lead { color: var(--muted); margin: 0 0 18px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .card { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+  .card h3 { margin: 0 0 6px; font-size: 16.5px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14.5px; }
+  kbd {
+    font: 12.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 3px 6px;
+    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; background: var(--bg-soft);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  td { padding: 9px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { white-space: nowrap; width: 34%; color: var(--muted); }
+  pre {
+    background: var(--bg-soft); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; overflow-x: auto; font: 13.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  footer { color: var(--muted); font-size: 14px; text-align: center; padding: 56px 0 72px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <img class="app" src="icon.png" alt="Fundus app icon">
+    <h1>Fundus</h1>
+    <p class="tagline">A native Mac client for Paperless-ngx. One window, your documents, a search that reaches you in every app — and it works behind an SSO gateway.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/elcajon/fundus/releases">Download for macOS</a>
+      <a class="btn ghost" href="https://github.com/elcajon/fundus">Source on GitHub</a>
+    </div>
+    <p class="note">macOS 15 or newer · free and open source (MIT) · screenshots are mockups with made-up documents</p>
+  </header>
+
+  <figure>
+    <img src="screenshots/library.svg" alt="The Fundus library window: documents in a grid with titles, dates and tags">
+    <figcaption>One window, no sidebar: documents at their real aspect ratio, with correspondent and tags underneath.</figcaption>
+  </figure>
+
+  <section>
+    <h2>Search that comes to you</h2>
+    <p class="lead">A global shortcut opens Fundus' search over whatever you are working in.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Quick Search anywhere</h3>
+        <p><kbd>⇧⌘A</kbd> opens a floating panel above any app. <kbd>↩</kbd> opens the document in Fundus. The shortcut is yours to change.</p>
+      </div>
+      <div class="card">
+        <h3>Instant, also offline</h3>
+        <p>It searches the local copy of your archive, so results appear while you type — even without a connection.</p>
+      </div>
+      <div class="card">
+        <h3>Filters you just type</h3>
+        <p><code>#tag</code>, <code>@correspondent</code>, <code>typ:type</code> become tokens in the search field; the rest goes to Paperless' full-text index.</p>
+      </div>
+      <div class="card">
+        <h3>Spotlight</h3>
+        <p>Every document is reported to Spotlight with title, text, tags and thumbnail. A hit opens it in Fundus.</p>
+      </div>
+    </div>
+  </section>
+
+  <figure>
+    <img src="screenshots/quick-search.svg" alt="Quick Search panel floating above another app with matching documents">
+    <figcaption>Quick Search over another app — type, pick with the arrow keys, press return.</figcaption>
+  </figure>
+
+  <section>
+    <h2>Work through the inbox</h2>
+    <p class="lead">Everything a freshly scanned document needs, in one column.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Metadata in place</h3>
+        <p>Title, date, correspondent, type and tags. <kbd>⌘S</kbd> saves, <kbd>⌘↩</kbd> saves, removes the inbox tags and jumps to the next document.</p>
+      </div>
+      <div class="card">
+        <h3>Custom fields</h3>
+        <p>Each field gets the control its type deserves: text, URL, number, amount with currency, date, yes/no, select list, document links.</p>
+      </div>
+      <div class="card">
+        <h3>Workflow aware</h3>
+        <p>If a Paperless workflow changes the document right after saving, Fundus reloads it and says so instead of showing you a stale state.</p>
+      </div>
+      <div class="card">
+        <h3>Import and drag out</h3>
+        <p>Drop files on the window or press <kbd>⌘O</kbd>; the Paperless task is tracked to the end. Drag a document out and you get the original file.</p>
+      </div>
+    </div>
+  </section>
+
+  <figure>
+    <img src="screenshots/inspector.svg" alt="Inspector column with title, date, correspondent, tags and custom fields">
+    <figcaption>The inspector: metadata, tags and custom fields — with the file itself next to it.</figcaption>
+  </figure>
+
+  <section>
+    <h2>Lives in the menu bar</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>⌘Q doesn't quit</h3>
+        <p>It closes the windows and hides the Dock icon. Fundus keeps watching for new documents and comes back from the menu bar.</p>
+      </div>
+      <div class="card">
+        <h3>Silent start at login</h3>
+        <p>A small launcher inside the bundle starts Fundus without a window, the way 1Password does it.</p>
+      </div>
+      <div class="card">
+        <h3>Notifications</h3>
+        <p>New documents arrive with a thumbnail; a click opens the document.</p>
+      </div>
+      <div class="card">
+        <h3>Offline copy</h3>
+        <p>Titles, text and thumbnails of the whole archive stay on your Mac, plus the previews you opened recently.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Works behind SSO</h2>
+    <p class="lead">Most Paperless clients stop at the gateway. Fundus doesn't.</p>
+    <table>
+      <tr><td>Plain Paperless</td><td>Sign in with user name and password; Fundus fetches an API token via <code>/api/token/</code> and keeps only that, in the keychain.</td></tr>
+      <tr><td>Behind Pangolin &amp; co.</td><td>A sign-in window carries you through the gateway, the session cookie is reused after a restart.</td></tr>
+      <tr><td>Passkeys</td><td>macOS blocks WebAuthn in embedded web views. Use "sign in with another device" (QR code) or a login code — there's a button for it.</td></tr>
+      <tr><td>Gentle on the gateway</td><td>No request storms while a session is expired, and never a <code>DELETE</code> — CrowdSec setups tend to dislike both.</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Build it yourself</h2>
+    <p class="lead">No dependencies, no Xcode — the Command Line Tools are enough.</p>
+<pre>git clone https://github.com/elcajon/fundus.git
+cd fundus
+./test.sh
+./build.sh
+open build/Fundus.app</pre>
+  </section>
+
+  <footer>
+    Made for a personal archive, shared as is. MIT licensed · not affiliated with the Paperless-ngx project.
+  </footer>
+
+</div>
+</body>
+</html>

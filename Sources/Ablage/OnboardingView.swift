@@ -2,7 +2,7 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
-    @State private var server = "paperless.max-venz.io"
+    @State private var server = "paperless.example.com"
     @State private var token = ""
     @State private var busy = false
 

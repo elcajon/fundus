@@ -3,3 +3,4 @@ build/
 .signing/
 __pycache__/
 Resources/AppIcon.icns
+.DS_Store

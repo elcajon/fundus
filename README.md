@@ -1,12 +1,92 @@
-# Fundus
+<div align="center">
+  <img src="docs/icon.png" width="120" alt="Fundus icon">
+  <h1>Fundus</h1>
+  <p><strong>A native macOS client for Paperless-ngx — minimal, fast, and at home behind SSO.</strong></p>
+  <p>
+    <img src="https://img.shields.io/badge/macOS-15%2B-000000?style=flat-square" alt="macOS 15+">
+    <img src="https://img.shields.io/badge/SwiftUI-Liquid%20Glass-1d4ed8?style=flat-square" alt="SwiftUI">
+    <img src="https://img.shields.io/badge/Xcode-not%20required-6e6e73?style=flat-square" alt="No Xcode required">
+  </p>
+</div>
 
-Eine native Mac-App für Paperless-ngx, inspiriert von [Papers](https://papersapp.info). Sie funktioniert mit einer normalen Paperless-Anmeldung und kommt zusätzlich an Instanzen heran, die hinter **Pangolin** (badger + SSO) stehen.
+Fundus shows your Paperless-ngx archive the way a Mac app should: one window, your documents at their real aspect ratio, and no sidebar full of filters you never use. It talks to a plain Paperless login just as happily as to an instance published behind an SSO gateway such as [Pangolin](https://github.com/fosrl/pangolin).
 
-Der Bundle-Identifier bleibt aus Gründen der Kompatibilität `de.max-venz.ablage`; daran hängen Schlüsselbund-Freigabe, Einstellungen, Anmeldeobjekt und der Cache-Ordner. Das URL-Schema `ablage://` funktioniert weiterhin, `fundus://` ebenso.
+> The screenshots below are mockups with made-up documents — no real archive is shown.
 
-## Bauen und testen
+<img src="docs/screenshots/library.svg" width="100%" alt="Library window with documents in a grid">
 
-Voraussetzung ist macOS 15. Xcode ist nicht nötig, die Command Line Tools reichen:
+## Features
+
+### Find things
+
+- **Quick Search from anywhere.** A global shortcut (⇧⌘A by default, freely configurable) opens a floating search panel over whatever app you are in — press ↩ and the document opens in Fundus. It searches the local copy, so results appear as you type, even offline.
+- **Filters you type.** `#tag`, `@correspondent`, `typ:type` turn into tokens right in the search field; everything else goes to Paperless' full-text index. Quoted names work too: `#"house and garden"`.
+- **Spotlight.** Every document is reported to Spotlight with title, text, tags and thumbnail. A hit opens it in Fundus.
+
+<img src="docs/screenshots/quick-search.svg" width="100%" alt="Quick Search panel floating above another app">
+
+### Work through your inbox
+
+- **Edit metadata in place.** Title, date, correspondent, document type and tags in an inspector column — ⌘S saves.
+- **Custom fields.** Assigned fields appear with the right control for their type: text, URL, number, amount with currency, date, yes/no, select list and document links. Add or remove fields per document; Fundus only sends them when you actually changed something.
+- **Done and next.** ⌘↩ saves, strips the inbox tags and moves on to the next document.
+- **Workflow aware.** Paperless workflows that run on "document updated" can change a document right after saving. Fundus reloads it and tells you when that happened.
+
+<img src="docs/screenshots/inspector.svg" width="100%" alt="Inspector with metadata, tags and custom fields">
+
+### Get documents in and out
+
+- **Import** by dropping files on the window or with ⌘O. Files are streamed, not loaded into memory, and the Paperless task is tracked until the document exists — including the reason when it fails, e.g. a duplicate.
+- **Drag out.** Drag a document from the window into Finder, Mail or anywhere else and you get the original file.
+- **Share and export** the selection (⇧⌘S / ⌘E), several documents at once.
+
+### Stay out of the way
+
+- **Menu bar app.** ⌘Q only closes the windows and hides the Dock icon; Fundus keeps running in the menu bar, watching for new documents. Optionally with no Dock icon at all, and with a launcher that starts it silently at login.
+- **Notifications** for new documents, with a thumbnail; a click opens the document.
+- **Offline copy.** Titles, text and thumbnails of every document are kept locally, plus the 150 most recently opened previews. Without a connection you can still search and read what you opened before.
+- **Light and dark.** Liquid Glass on macOS 26, the previous materials before that, and an app icon that switches with the system appearance.
+
+## Install
+
+Download the `.dmg` from [Releases](../../releases) and drag Fundus to your Applications folder, or build it yourself (below). The app is signed with a self-made certificate, so on first launch use **right click → Open** and confirm once.
+
+## Connecting
+
+1. Enter your Paperless address.
+2. A sign-in window opens: your Paperless login, or your SSO gateway's.
+3. If your Paperless profile has an API token, Fundus adopts it. Otherwise enter user name and password under **Settings → Connection** — Fundus fetches a token via `/api/token/` and stores only that, in the keychain.
+
+### Behind Pangolin
+
+Pangolin's badger plugin answers `/api/*` with `401 text/plain` before Paperless ever sees the request. Fundus signs in through a WKWebView, copies the resource cookie into its URLSession and reuses it after a restart.
+
+- **Passkeys don't work in that window.** macOS only allows WebAuthn in embedded web views for signed browsers with the entitlement. Use "sign in with another device" (QR code) or a login code instead — the banner in the sign-in window has a button for it.
+- While the session is expired, Fundus stops fetching thumbnails and polling for new documents: a series of 401s looks like an attack to CrowdSec.
+- Fundus never sends `DELETE`. CrowdSec on that stack blocks body-less DELETE over HTTP/3.
+
+## Keyboard
+
+| | |
+|---|---|
+| ⇧⌘A | Quick Search from any app (configurable) |
+| Click, ⌘-click, ⇧-click, ⌘A | select, add to selection, range, all |
+| Double click, Space, ↩, ⌘↓ | read in the same window |
+| Esc, ⌘↑ | leave reading mode, clear selection |
+| ← → ↑ ↓ | move through the grid; previous/next document while reading |
+| ⌘I | inspector: title, date, correspondent, type, tags, custom fields (⌘S saves) |
+| ⇧⌘I | show inbox |
+| ⌘↩ | in the inbox: save, remove inbox tags, next document |
+| ⌘F | search field |
+| ⌘+ / ⌘− / ⌘0 | larger, smaller, reset the view |
+| ⌘O, drop files | import |
+| ⇧⌘S / ⌘E | share / export the selection |
+| ⇧⌘O | open in Paperless |
+| ⌘R | reload |
+
+## Build it yourself
+
+macOS 15 or newer. Xcode is not required, the Command Line Tools are enough:
 
 ```sh
 ./test.sh
@@ -14,73 +94,19 @@ Voraussetzung ist macOS 15. Xcode ist nicht nötig, die Command Line Tools reich
 open build/Fundus.app
 ```
 
-- `build.sh` baut gegen das neueste macOS-26-SDK, weil im 27er-SDK `@State` ein Macro ist, dessen Plugin nur mit Xcode ausgeliefert wird (die Liquid-Glass-APIs sind in beiden SDKs identisch). Danach trägt es mit `vtool` die echte SDK-Version ins Binary ein: SwiftPM schreibt dort sonst die Mindestversion 15.0 hinein, und macOS zeigt die App dann im alten Design ohne Liquid Glass.
-- Das Icon (hell und dunkel) und das Menüleisten-Symbol rendert `scripts/make-icon.swift` bei jedem Build. Eine `.icns`-Datei kennt keine Hell-/Dunkel-Varianten, das kann nur Apples Icon Composer. Fundus tauscht deshalb zur Laufzeit sein Dock-Symbol, wenn das System dunkel ist; im Finder und im DMG erscheint die helle Fassung.
-- Signiert wird mit Hardened Runtime und einem selbst erzeugten Zertifikat aus einem eigenen Schlüsselbund unter `.signing/` (nicht im Repo). Der Login-Schlüsselbund bleibt unberührt. Ohne Apple-Entwicklerzertifikat bindet macOS „Immer erlauben“ beim Schlüsselbund-Zugriff trotzdem an den einzelnen Build: Nach jedem Neubau fragt es einmal nach dem Passwort.
-- `test.sh` führt die Tests (Swift Testing) aus und gibt den Pfad zum Macro-Plugin mit, den die Command Line Tools sonst nicht finden.
-- Beide Skripte prüfen über `scripts/make-strings.py`, dass jeder sichtbare Text eine englische Übersetzung hat (`scripts/translations_en.py`). Deutsch ist die Entwicklungssprache.
+- `build.sh` builds against the newest macOS 26 SDK (in the 27 SDK `@State` is a macro whose plugin ships only with Xcode), writes the real SDK version into the binary with `vtool` so macOS grants the current design, renders the icons, assembles the bundle and signs it with hardened runtime using a self-made certificate in `.signing/` — your login keychain is left alone.
+- `test.sh` runs the Swift Testing suite and also verifies that every visible string has an English translation. German is the development language; the app ships German and English.
 
-Zum Installieren nach `/Applications` ziehen (nötig für „Beim Anmelden starten“).
+## How it is built
 
-## Wie die App durch Pangolin kommt
-
-Pangolin beantwortet `/api/*` ohne Session mit `401 Unauthorized` (text/plain), bevor Paperless die Anfrage überhaupt sieht.
-
-1. **SSO-Login im App-Fenster.** Beim Verbinden öffnet sich ein WebView mit dem Pangolin-Login. Nach der Anmeldung liegt das Resource-Cookie `p_session_token` im persistenten WebKit-Speicher. Die App kopiert es in ihre URLSession und nutzt es nach jedem Neustart wieder.
-   - **Passkeys aus dem Schlüsselbund funktionieren in diesem Fenster nicht.** macOS erlaubt WebAuthn in eingebetteten WebViews nur signierten Browsern mit Entitlement. In Pocket-ID deshalb *Alternative Anmeldemöglichkeiten → Mit einem anderen Gerät anmelden* (QR-Code mit dem iPhone) oder *Logincode* nehmen. Das Banner im Login-Fenster hat dafür einen Direktknopf.
-2. **Ohne SSO:** Bei einer normalen Paperless-Instanz führt derselbe Weg zur Paperless-Anmeldeseite. Alternativ nimmt Einstellungen → Verbindung Benutzername und Passwort entgegen und holt darüber einen API-Token (`/api/token/`); gespeichert wird nur der Token.
-3. **Paperless-Auth.** Nach dem SSO-Login liest die App `/api/profile/`. Hat das Profil einen API-Token, wird er in den Schlüsselbund übernommen, sonst reicht das Paperless-Session-Cookie zum Lesen. Importe und Bearbeiten brauchen den Token (Paperless prüft ihn vor der Session, also ohne CSRF).
-
-Läuft die Pangolin-Session ab, öffnet sich das Login-Fenster von selbst wieder. Solange sie abgelaufen ist, lädt die App keine Vorschaubilder und fragt nicht nach neuen Dokumenten: Jede Anfrage wäre ein 401, und CrowdSec wertet solche Serien als Angriff.
-
-Die App löscht nichts per `DELETE`: Das CrowdSec-Plugin auf dem Pangolin-Stack blockt bodylose DELETEs über HTTP/3.
-
-## Bedienung
-
-Bewusst minimalistisch, nach dem Vorbild von Papers: ein Fenster ohne Seitenleiste, die Dokumente in ihrem echten Seitenverhältnis. Ab macOS 26 mit Liquid Glass (System-Toolbar, Glas-Suchfeld, weicher Scroll-Rand), auf älteren Systemen mit den bisherigen Materialien.
-
-| | |
-|---|---|
-| Klick, ⌘-Klick, ⇧-Klick, ⌘A | auswählen, zur Auswahl hinzufügen, Bereich, alles |
-| Doppelklick, Leertaste, ↩, ⌘↓ | lesen (im selben Fenster) |
-| Esc, ⌘↑ | Lesemodus schließen, Auswahl aufheben |
-| ← → ↑ ↓ | durchs Raster wandern, im Lesemodus ← → zum vorigen/nächsten Dokument |
-| ⌘I | Informationen: Titel, Datum, Korrespondent, Typ, Tags und benutzerdefinierte Felder bearbeiten (⌘S sichert) |
-| ⇧⌘I | Eingang anzeigen |
-| ⌘↩ | im Eingang: Änderungen sichern, Eingangs-Tags entfernen, weiter zum nächsten |
-| ⌘F | suchen |
-| ⌘+ / ⌘− / ⌘0 | Dokumente größer, kleiner, Ansicht zurücksetzen |
-| ⌘O, Dateien aufs Fenster ziehen | importieren |
-| Dokument aus dem Fenster ziehen | Originaldatei in Finder, Mail usw. ablegen |
-| ⇧⌘S / ⌘E | Auswahl teilen / exportieren (Originaldateien) |
-| ⇧⌘O | in Paperless öffnen |
-| ⌘R | neu laden |
-
-**Suche.** Freitext geht an den Volltextindex von Paperless. Filter tippt man direkt ins Suchfeld: `#Steuer` (Tag), `@Obi` (Korrespondent), `typ:Rechnung` (Dokumenttyp). Namen mit Leerzeichen in Anführungszeichen: `#"Haus und Garten"`. Unter dem Feld erscheinen passende Vorschläge; abgeschlossene Filter werden zu Tokens. Mehrere Tags müssen alle passen, mehrere Korrespondenten oder Typen gelten als „oder“. Sortiert wird über Darstellung → Sortieren nach (Dokumentdatum oder Hinzugefügt).
-
-**Schnellsuche.** ⌥⌘A öffnet aus jeder App ein schwebendes Suchfeld (wie Quick Access bei 1Password). Es sucht in der lokalen Kopie, versteht dieselben Filter wie das Suchfeld (`#Tag`, `@Absender`, `typ:`) und zeigt Treffer im Titel zuerst. ↑/↓ wählt, ↩ öffnet das Dokument in Fundus, Esc oder ein Klick daneben schließt. Abschaltbar unter Einstellungen → Allgemein.
-
-**Benutzerdefinierte Felder.** Die Informationen zeigen zugewiesene Felder mit passendem Eingabeelement (Text, Zahl, Betrag mit Währung, Datum, Ja/Nein, Auswahl, Dokument-Verknüpfung). „Feld hinzufügen“ weist weitere Felder zu, der Minus-Knopf entfernt eines. Paperless ersetzt beim Sichern die komplette Feldliste, deshalb sendet die App sie nur, wenn sich daran etwas geändert hat und die Felder des Dokuments vollständig geladen sind. Neue Felder selbst legt man in Paperless an.
-
-**Importe.** Nach dem Hochladen verfolgt die App den Paperless-Task. In der Toolbar zeigt ein Knopf laufende und fehlgeschlagene Importe, samt Meldung von Paperless (z. B. Duplikat). Dateien werden gestreamt, nicht komplett in den Speicher geladen.
-
-## Mitteilungen
-
-- **Auf dem Mac:** Fundus fragt Paperless regelmäßig (Standard: alle 2 Minuten) nach neuen Dokumenten und meldet sie mit Vorschaubild. Ein Klick öffnet das Dokument. Selbst importierte Dokumente meldet der Import, nicht der Watcher.
-- **Menüleiste:** Das Symbol zeigt die neuesten Dokumente und schnelle Aktionen. Solange es aktiv ist, schließt ⌘Q nur die Fenster und blendet das Dock-Symbol aus; Fundus läuft in der Menüleiste weiter und meldet neue Dokumente. Beendet wird die App über „Fundus beenden“ im Menüleisten-Menü, „Fundus → Fundus vollständig beenden“, beim Abmelden oder über „Beenden“ im Dock. Das Fenster (und mit ihm das Dock-Symbol) kommt über das Symbol, einen Spotlight-Treffer, eine Mitteilung oder erneutes Öffnen der App zurück. Beim Anmelden startet eine kleine Hilfs-App im Paket (`Contents/Library/LoginItems/FundusLauncher.app`) Fundus still mit `--silent`: ohne Fenster und ohne Dock-Symbol, wie bei 1Password. Auf Wunsch läuft Fundus ganz ohne Dock-Symbol und startet ohne Fenster („Nur in der Menüleiste“).
-
-## Offline und Spotlight
-
-Fundus gleicht alle 15 Minuten (und nach neuen Dokumenten) eine lokale Kopie ab: Titel, Text (bis 50 000 Zeichen je Dokument) und Vorschaubilder aller Dokumente, dazu die 150 zuletzt geöffneten Vorschauen. Einmal täglich ein vollständiger Abgleich, der auch Gelöschtes entfernt. Liegt unter `~/Library/Caches/de.max-venz.ablage/<host>/`.
-
-- Ohne Verbindung zeigt die App die lokale Kopie, sucht darin und öffnet bereits geöffnete Dokumente.
-- Die Dokumente werden an Spotlight gemeldet (Einstellungen → Bibliothek zeigt, wie viele Spotlight kennt). Ein Treffer öffnet sie in Fundus (auch als Link `ablage://document/<id>`).
-- Einstellungen → Bibliothek zeigt den belegten Speicher, gleicht sofort ab oder löscht die Kopie.
-
-## Protokoll
-
-Fehler landen im macOS-Log:
+Plain SwiftUI, no dependencies. `PaperlessClient` speaks API version 9 and classifies every response so a gateway's sign-in page is never mistaken for a Paperless error. `LibraryStore` is an actor holding the offline copy, `AppModel` is the single `@Observable` source of truth for the UI. Logging goes to the unified log:
 
 ```sh
 log stream --predicate 'subsystem == "de.max-venz.ablage"' --level info
 ```
+
+The bundle identifier stays `de.max-venz.ablage` for compatibility, and both `ablage://` and `fundus://` links open documents.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Not affiliated with the Paperless-ngx project.
