@@ -13,8 +13,8 @@ struct DocumentInspector: View {
             }
         } else if let doc = model.focusedDocument {
             DocumentEditor(document: doc)
-                // Neu aufbauen, sobald die benutzerdefinierten Felder nachgeladen sind.
-                .id("\(doc.id)-\(doc.customFields != nil)")
+                // Neu aufbauen, wenn die Felder nachgeladen oder das Dokument gesichert wurde.
+                .id("\(doc.id)-\(doc.customFields != nil)-\(doc.modified ?? "")")
         } else {
             ContentUnavailableView("Kein Dokument ausgewählt", systemImage: "doc.text.magnifyingglass",
                                    description: Text("Doppelklick oder Leertaste öffnet es zum Lesen."))

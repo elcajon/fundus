@@ -198,4 +198,5 @@ EN = {
 "Verknüpfung entfernen": "Remove Link",
 "Währung": "Currency",
 "https://…": "https://…",
+"Ein Paperless-Workflow hat „%@“ nach dem Sichern geändert.": "A Paperless workflow changed “%@” after saving.",
 }

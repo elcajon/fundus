@@ -313,12 +313,25 @@ final class AppModel {
     func customField(_ id: Int) -> CustomFieldDefinition? { customFieldsByID[id] }
 
     /// Lädt ein Dokument vollständig nach, z. B. wenn die Liste keine Felder enthielt.
-    func refreshDocument(_ id: Int) async {
-        guard let client, phase == .ready, let fresh = try? await client.document(id) else { return }
+    @discardableResult
+    func refreshDocument(_ id: Int) async -> Document? {
+        guard let client, phase == .ready, let fresh = try? await client.document(id) else { return nil }
         var doc = fresh
         doc.searchHit = document(id)?.searchHit
         if let index = documents.firstIndex(where: { $0.id == id }) { documents[index] = doc }
         await store?.upsert([doc], lastModified: nil)
+        return doc
+    }
+
+    /// Paperless-Workflows („Dokument aktualisiert“) können nach dem Sichern noch Felder, Tags
+    /// oder Zuordnungen ändern. Kurz danach nachladen, damit die Ansicht stimmt.
+    private func checkWorkflowChanges(after saved: Document) async {
+        try? await Task.sleep(for: .seconds(2))
+        guard let fresh = await refreshDocument(saved.id), fresh.modified != saved.modified else { return }
+        if DocumentUpdate(fresh) != DocumentUpdate(saved) {
+            Log.app.info("Dokument \(saved.id) wurde nach dem Sichern von Paperless geändert")
+            toast = String(localized: "Ein Paperless-Workflow hat „\(fresh.title)“ nach dem Sichern geändert.")
+        }
     }
 
     /// Titel verknüpfter Dokumente, aus dem Raster oder der lokalen Kopie.
@@ -348,12 +361,15 @@ final class AppModel {
     }
 
     func reload() async {
+        let reading = document(readerID)
         loadGeneration += 1
         nextPage = 1
         documents = []
         totalCount = 0
         isLoadingPage = false
         await loadMore()
+        // Das gerade gelesene Dokument bleibt, auch wenn es nicht auf der ersten Seite liegt.
+        if let reading, document(reading.id) == nil { documents.insert(reading, at: 0) }
         selectedIDs = selectedIDs.filter { document($0) != nil }
         if let focusedID, document(focusedID) == nil { self.focusedID = nil }
     }
@@ -645,6 +661,7 @@ final class AppModel {
             replace(saved)
             await store?.upsert([saved], lastModified: nil)
             if let store { await SpotlightIndexer.index([saved], names: spotlightNames, store: store) }
+            Task { await checkWorkflowChanges(after: saved) }
             return true
         } catch {
             Log.app.error("Speichern von \(id) fehlgeschlagen: \(String(describing: error), privacy: .public)")
