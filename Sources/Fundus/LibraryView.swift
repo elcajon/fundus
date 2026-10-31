@@ -271,18 +271,21 @@ struct DocumentGrid: View {
         GeometryReader { geo in
             let spacing = 42 * min(model.zoom, 1.2)
             let target = 290 * model.zoom
+            // Nur die Spaltenzahl kommt von außen. Die Breite der Spalten bestimmt die ScrollView selbst
+            // (flexible Spalten): Mit klassischen Scrollbalken ist ihr sichtbarer Bereich je nach Balken
+            // 17 pt schmaler. Eine von außen festgelegte Breite passte nur in einen der beiden Zustände,
+            // und die ScrollView blendete den Balken dann im Millisekundentakt ein und aus.
             let usable = geo.size.width - padding * 2
             let count = max(1, Int((usable + spacing) / (target + spacing)))
-            let cell = (usable - spacing * CGFloat(count - 1)) / CGFloat(count)
 
             ScrollViewReader { proxy in
                 ScrollView {
                     Color.clear.frame(height: 0).id("top")
-                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(cell), spacing: spacing, alignment: .topLeading),
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: spacing, alignment: .topLeading),
                                              count: count),
                               alignment: .leading, spacing: 46) {
                         ForEach(model.documents) { doc in
-                            DocumentTile(document: doc, width: cell)
+                            DocumentTile(document: doc)
                                 .id(doc.id)
                                 .onAppear {
                                     if doc.id == model.documents.last?.id {
@@ -351,13 +354,19 @@ struct DocumentTile: View {
     @AppStorage("showTags") private var showTags = true
 
     let document: Document
-    let width: CGFloat
 
     private var isSelected: Bool { model.selectedIDs.contains(document.id) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PageStack(document: document, box: CGSize(width: width, height: width * 1.9), isSelected: isSelected)
+            // Die Zelle hat die Breite der Spalte und ein festes Seitenverhältnis; darin liegt die Seite.
+            Color.clear
+                .aspectRatio(1 / 1.9, contentMode: .fit)
+                .overlay {
+                    GeometryReader { geo in
+                        PageStack(document: document, box: geo.size, isSelected: isSelected)
+                    }
+                }
                 .onTapGesture {
                     // Doppelklick über den Klickzähler erkennen, damit die Auswahl ohne Verzögerung reagiert.
                     let event = NSApp.currentEvent
@@ -393,7 +402,7 @@ struct DocumentTile: View {
                 .padding(.top, 12)
             }
         }
-        .frame(width: width, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
