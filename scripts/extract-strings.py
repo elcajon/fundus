@@ -32,7 +32,7 @@ def to_key(literal):
 
 keys = {}
 pattern = re.compile(CONTEXTS + r'"((?:[^"\\]|\\.)*)"')
-for path in sorted(pathlib.Path('Sources/Ablage').glob('*.swift')):
+for path in sorted(pathlib.Path('Sources/Fundus').glob('*.swift')):
     for m in pattern.finditer(path.read_text()):
         lit = m.group(1)
         if not lit.strip() or not re.search(r'[A-Za-zÄÖÜäöü]', lit): continue
