@@ -13,6 +13,38 @@ struct SettingsView: View {
                 .tabItem { Label("Verbindung", systemImage: "network") }
         }
         .frame(width: 540)
+        .toggleStyle(SettingsSwitchStyle())
+    }
+}
+
+/// Schalterzeile mit fester Schaltergröße.
+///
+/// Der Standard-Schalter meldet in den ersten Layout-Durchläufen seine reguläre Größe (54 × 24) und erst
+/// nach weiteren Updates, etwa beim Überfahren mit der Maus, seine echte Mini-Größe (36 × 16). Formular
+/// und Fenster schrumpften dann bei jedem Hover ein Stück. Mit festem Rahmen und ohne Ausrichtung an der
+/// Grundlinie (die der Schalter ebenfalls falsch meldet) bleibt die Zeile von Anfang an gleich hoch.
+private struct SettingsSwitchStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        SettingsSwitchRow(configuration: configuration)
+    }
+}
+
+private struct SettingsSwitchRow: View {
+    let configuration: ToggleStyleConfiguration
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        HStack {
+            configuration.label
+                .foregroundStyle(isEnabled ? .primary : .tertiary)
+                .accessibilityHidden(true)
+            Spacer(minLength: 8)
+            Toggle(isOn: configuration.$isOn) { configuration.label }
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .controlSize(.mini)
+                .frame(width: 36, height: 16)
+        }
     }
 }
 
