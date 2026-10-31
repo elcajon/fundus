@@ -148,6 +148,14 @@ CNF
 fi
 security unlock-keychain -p "$(<"$signing/password")" "$kc"
 # Hardened Runtime: kein nachgeladener fremder Code, keine Debugger-Anbindung von außen.
-codesign --force --options runtime --keychain "$kc" --sign "$identity" "$launcher"
-codesign --force --options runtime --keychain "$kc" --sign "$identity" "$app"
-echo "Fertig: $PWD/$app"
+# Ein selbst ausgestelltes Zertifikat gilt unter neueren macOS-Versionen als nicht vertrauenswürdig
+# (CSSMERR_TP_NOT_TRUSTED), und codesign findet es dann nicht mehr. In dem Fall ad hoc signieren.
+if codesign --force --options runtime --keychain "$kc" --sign "$identity" "$launcher" 2>/dev/null; then
+  codesign --force --options runtime --keychain "$kc" --sign "$identity" "$app"
+  echo "Fertig: $PWD/$app"
+else
+  echo "Warnung: Identität „$identity“ nicht nutzbar, signiere ad hoc (der Schlüsselbund fragt nach jedem Build neu)." >&2
+  codesign --force --options runtime --sign - "$launcher"
+  codesign --force --options runtime --sign - "$app"
+  echo "Fertig (ad hoc signiert): $PWD/$app"
+fi
