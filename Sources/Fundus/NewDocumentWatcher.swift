@@ -33,7 +33,13 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
     func start() {
         stop()
         guard isEnabled else { return }
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error {
+                Log.app.error("Mitteilungen: Berechtigung nicht angefragt: \(String(describing: error), privacy: .public)")
+            } else if !granted {
+                Log.app.notice("Mitteilungen sind in den Systemeinstellungen nicht erlaubt")
+            }
+        }
         task = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.check()

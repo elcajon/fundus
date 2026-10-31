@@ -232,6 +232,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppSettings.applyLaunchPolicy()
         if !AppSettings.startsInMenuBar { NSApp.activate(ignoringOtherApps: true) }
         AppSettings.migrateLoginItem()
+        // Der Watcher ist zugleich Delegate des Mitteilungszentrums. Er muss beim Start stehen, sonst
+        // geht der Klick auf eine Mitteilung verloren, die Fundus erst gestartet hat.
+        _ = model.watcher
         QuickSearchController.shared.applySetting()
         Appearance.apply(UserDefaults.standard.string(forKey: Appearance.key))
         Appearance.applyIcon()
