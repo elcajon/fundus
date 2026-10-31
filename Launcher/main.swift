@@ -1,12 +1,12 @@
-// Anmeldeobjekt von Ablage: startet die App still (ohne Fenster), wie der Launcher von 1Password.
-// Liegt in Ablage.app/Contents/Library/LoginItems/AblageLauncher.app.
+// Fundus login item: starts the app silently (without a window), like 1Password's launcher.
+// Lives in Fundus.app/Contents/Library/LoginItems/FundusLauncher.app.
 import AppKit
 
 let mainApp = Bundle.main.bundleURL
     .deletingLastPathComponent() // LoginItems
     .deletingLastPathComponent() // Library
     .deletingLastPathComponent() // Contents
-    .deletingLastPathComponent() // Ablage.app
+    .deletingLastPathComponent() // Fundus.app
 
 if NSRunningApplication.runningApplications(withBundleIdentifier: "de.max-venz.ablage").isEmpty {
     let configuration = NSWorkspace.OpenConfiguration()

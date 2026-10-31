@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Benutzerdefinierte Felder eines Dokuments: zugewiesene anzeigen, bearbeiten, entfernen und neue hinzufügen.
+/// Custom fields of a document: show, edit and remove assigned ones, and add new ones.
 struct CustomFieldsSection: View {
     @Environment(AppModel.self) private var model
     let documentID: Int

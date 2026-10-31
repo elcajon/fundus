@@ -54,7 +54,7 @@ struct ResponseKindTests {
     @Test("HTML statt JSON ist eine Anmeldeseite")
     func htmlInsteadOfJSON() {
         #expect(classify(200, type: "text/html; charset=utf-8") == .pangolinLogin)
-        // Binärabrufe mit */* dürfen HTML nicht als Fehler werten.
+        // Binary fetches with */* must not treat HTML as an error.
         #expect(classify(200, type: "text/html", accept: "*/*") == .ok)
     }
 

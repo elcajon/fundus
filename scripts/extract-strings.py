@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Sammelt übersetzbare Texte aus den Swift-Quellen und gibt die Schlüssel so aus,
-wie SwiftUI/Foundation sie nachschlagen (Interpolationen als %@ bzw. %lld)."""
+"""Collects translatable strings from the Swift sources and prints the keys the way
+SwiftUI/Foundation look them up (interpolations as %@ or %lld)."""
 import re, sys, pathlib
 
 CONTEXTS = r'(?:Text|Button|Label|Toggle|Section|Picker|TextField|SecureField|Menu|LabeledContent|' \

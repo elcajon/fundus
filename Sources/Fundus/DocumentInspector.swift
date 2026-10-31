@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Metadaten des fokussierten Dokuments ansehen und bearbeiten. Im Eingang mit „Erledigt“.
+/// View and edit the metadata of the focused document. In the inbox with “Done”.
 struct DocumentInspector: View {
     @Environment(AppModel.self) private var model
 
@@ -13,7 +13,7 @@ struct DocumentInspector: View {
             }
         } else if let doc = model.focusedDocument {
             DocumentEditor(document: doc)
-                // Neu aufbauen, wenn die Felder nachgeladen oder das Dokument gesichert wurde.
+                // Rebuild when the fields were reloaded or the document was saved.
                 .id("\(doc.id)-\(doc.customFields != nil)-\(doc.modified ?? "")")
         } else {
             ContentUnavailableView("Kein Dokument ausgewählt", systemImage: "doc.text.magnifyingglass",
@@ -158,7 +158,7 @@ private struct DocumentEditor: View {
         .formStyle(.grouped)
     }
 
-    /// Werte kürzen statt die Spalte zu verbreitern.
+    /// Truncate values instead of widening the column.
     private func detail(_ label: LocalizedStringKey, _ value: String) -> some View {
         LabeledContent(label) {
             Text(value)
@@ -198,7 +198,7 @@ struct PillButtonStyle: ButtonStyle {
     }
 }
 
-/// Liste der laufenden und abgeschlossenen Importe mit den Meldungen von Paperless.
+/// List of running and finished imports with the messages from Paperless.
 struct ImportsView: View {
     @Environment(AppModel.self) private var model
 
@@ -259,7 +259,7 @@ struct ImportsView: View {
     }
 }
 
-/// Menü in der Menüleiste: neue Dokumente und schnelle Aktionen, auch ohne offenes Fenster.
+/// Menu in the menu bar: new documents and quick actions, even without an open window.
 struct MenuBarContent: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openSettings) private var openSettings

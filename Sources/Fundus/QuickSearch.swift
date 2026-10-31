@@ -2,14 +2,14 @@ import AppKit
 import Carbon.HIToolbox
 import SwiftUI
 
-/// Schnellsuche als schwebendes Fenster über allen Apps (wie „Quick Access“ bei 1Password).
-/// Sucht in der lokalen Kopie und öffnet den Treffer im Fundus-Fenster.
+/// Quick Search as a floating window above all apps (like “Quick Access” in 1Password).
+/// Searches the local copy and opens the hit in the Fundus window.
 @MainActor
 final class QuickSearchController {
     static let shared = QuickSearchController()
     nonisolated static let enabledKey = "quickSearchHotKey"
 
-    /// Konnte der Kurzbefehl nicht angemeldet werden, hat ihn eine andere App belegt.
+    /// If the shortcut couldn't be registered, another app has taken it.
     private(set) var registrationFailed = false
 
     private var panel: QuickSearchPanel?
@@ -17,7 +17,7 @@ final class QuickSearchController {
     private var keyMonitor: Any?
     private let state = QuickSearchState()
 
-    /// Kurzbefehl neu anmelden, z. B. nach einer Änderung in den Einstellungen.
+    /// Register the shortcut again, e.g. after a change in Settings.
     func applySetting() {
         hotKey?.unregister()
         hotKey = nil
@@ -41,7 +41,7 @@ final class QuickSearchController {
         resize(rows: 0)
         position(panel)
         panel.makeKeyAndOrderFront(nil)
-        // Fokus erst setzen, wenn das Panel Schlüsselfenster ist.
+        // Only set focus once the panel is the key window.
         DispatchQueue.main.async { self.state.focusRequest += 1 }
     }
 
@@ -75,16 +75,16 @@ final class QuickSearchController {
             onOpen: { [weak self] id in self?.open(id) },
             onClose: { [weak self] in self?.close() }
         ).environment(AppModel.shared))
-        // Die Größe bestimmt der Controller, nicht die ideale Größe der SwiftUI-Ansicht.
+        // The controller decides the size, not the SwiftUI view's ideal size.
         host.sizingOptions = []
         panel.contentView = host
-        // Esc schließt, auch wenn das Textfeld die Taste sonst für sich behält.
+        // Esc closes, even if the text field would otherwise keep the key for itself.
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak panel] event in
             guard event.keyCode == UInt16(kVK_Escape), let panel, panel.isKeyWindow else { return event }
             panel.orderOut(nil)
             return nil
         }
-        // Ein Klick daneben schließt die Suche.
+        // A click outside closes the search.
         NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: panel,
                                                queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.close() }
@@ -100,7 +100,7 @@ final class QuickSearchController {
         56 + (rows > 0 ? CGFloat(min(rows, maxRows)) * rowHeight + 12 : 0)
     }
 
-    /// Höhe an die Trefferzahl anpassen, die Oberkante bleibt stehen.
+    /// Fit the height to the number of hits; the top edge stays in place.
     private func resize(rows: Int) {
         guard let panel else { return }
         let height = Self.height(rows: rows)
@@ -110,7 +110,7 @@ final class QuickSearchController {
         panel.setFrame(frame, display: true)
     }
 
-    /// Auf dem Bildschirm mit der Maus, im oberen Drittel.
+    /// On the screen with the mouse, in the upper third.
     private func position(_ panel: NSPanel) {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
@@ -120,11 +120,11 @@ final class QuickSearchController {
     }
 }
 
-/// Ein systemweiter Kurzbefehl, wie ihn der Nutzer in den Einstellungen aufnimmt.
+/// A system-wide shortcut, as the user records it in Settings.
 struct Shortcut: Equatable {
-    /// Virtueller Tastencode (`kVK_…`).
+    /// Virtual key code (`kVK_…`).
     var keyCode: Int
-    /// Carbon-Flags (`cmdKey`, `shiftKey`, `optionKey`, `controlKey`).
+    /// Carbon flags (`cmdKey`, `shiftKey`, `optionKey`, `controlKey`).
     var modifiers: Int
 
     static let standard = Shortcut(keyCode: kVK_ANSI_A, modifiers: cmdKey | shiftKey)
@@ -142,14 +142,14 @@ struct Shortcut: Equatable {
         UserDefaults.standard.set(modifiers, forKey: Self.modifiersKey)
     }
 
-    /// Aus einem Tastendruck, wenn er mindestens eine Befehlstaste enthält.
+    /// From a key press, if it contains at least one modifier key.
     init?(event: NSEvent) {
         var carbon = 0
         if event.modifierFlags.contains(.command) { carbon |= cmdKey }
         if event.modifierFlags.contains(.shift) { carbon |= shiftKey }
         if event.modifierFlags.contains(.option) { carbon |= optionKey }
         if event.modifierFlags.contains(.control) { carbon |= controlKey }
-        // Ohne ⌘, ⌥ oder ⌃ würde der Kurzbefehl normales Tippen abfangen.
+        // Without ⌘, ⌥ or ⌃ the shortcut would intercept normal typing.
         guard carbon & (cmdKey | optionKey | controlKey) != 0 else { return nil }
         self.init(keyCode: Int(event.keyCode), modifiers: carbon)
     }
@@ -168,7 +168,7 @@ struct Shortcut: Equatable {
         return text + Self.keyName(keyCode)
     }
 
-    /// Name der Taste, so wie ihn Menüs zeigen.
+    /// Name of the key as menus show it.
     static func keyName(_ keyCode: Int) -> String {
         if let special = specialKeys[keyCode] { return special }
         let source = TISCopyCurrentASCIICapableKeyboardLayoutInputSource().takeRetainedValue()
@@ -195,7 +195,7 @@ struct Shortcut: Equatable {
     ]
 }
 
-/// Nimmt einen Tastendruck auf und speichert ihn als Kurzbefehl.
+/// Records a key press and saves it as the shortcut.
 struct ShortcutRecorder: View {
     @State private var shortcut = Shortcut.current
     @State private var recording = false
@@ -258,7 +258,7 @@ final class QuickSearchState {
     var results: [Document] = []
     var selection: Int?
     var focusRequest = 0
-    /// Mausposition beim Öffnen: Ein ruhender Zeiger über der Liste soll die Auswahl nicht verschieben.
+    /// Mouse position when opening: a resting pointer over the list shouldn't move the selection.
     @ObservationIgnored var mouseOrigin: NSPoint = .zero
 
     func reset() {

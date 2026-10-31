@@ -17,12 +17,12 @@ struct SettingsView: View {
     }
 }
 
-/// Schalterzeile mit fester Schaltergröße.
+/// Switch row with a fixed switch size.
 ///
-/// Der Standard-Schalter meldet in den ersten Layout-Durchläufen seine reguläre Größe (54 × 24) und erst
-/// nach weiteren Updates, etwa beim Überfahren mit der Maus, seine echte Mini-Größe (36 × 16). Formular
-/// und Fenster schrumpften dann bei jedem Hover ein Stück. Mit festem Rahmen und ohne Ausrichtung an der
-/// Grundlinie (die der Schalter ebenfalls falsch meldet) bleibt die Zeile von Anfang an gleich hoch.
+/// The standard switch reports its regular size (54 × 24) on the first layout passes and only
+/// after later updates, such as a mouse hover, its real mini size (36 × 16). The form and the
+/// window then shrank a bit with every hover. With a fixed frame and no baseline alignment
+/// (the switch reports its baseline wrongly too), the row has the same height from the start.
 private struct SettingsSwitchStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         SettingsSwitchRow(configuration: configuration)

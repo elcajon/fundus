@@ -2,11 +2,11 @@ import Foundation
 
 enum ClientError: LocalizedError, Equatable {
     case notConfigured
-    /// Pangolin (badger) hat die Anfrage abgefangen, bevor sie Paperless erreicht hat.
+    /// Pangolin (badger) intercepted the request before it reached Paperless.
     case pangolinLoginRequired
-    /// Pangolin hat durchgelassen, aber Paperless kennt uns nicht.
+    /// Pangolin let it through, but Paperless doesn't know us.
     case paperlessUnauthorized
-    /// Schreibende Aufrufe brauchen den API-Token (Session-Auth verlangt sonst CSRF).
+    /// Writing calls need the API token (session auth would otherwise require CSRF).
     case tokenRequired
     case http(Int, String)
 
@@ -25,7 +25,7 @@ enum ClientError: LocalizedError, Equatable {
         }
     }
 
-    /// Paperless verpackt Fehler meist als `{"detail": "…"}` oder `{"feld": ["…"]}`.
+    /// Paperless usually wraps errors as `{"detail": "…"}` or `{"field": ["…"]}`.
     static func shortDetail(_ body: String) -> String {
         if let data = body.data(using: .utf8),
            let json = try? JSONSerialization.jsonObject(with: data) {
@@ -43,7 +43,7 @@ enum ClientError: LocalizedError, Equatable {
     }
 }
 
-/// Wie eine Antwort zu verstehen ist. Getrennt von der Netzwerkschicht, damit sie testbar bleibt.
+/// How to interpret a response. Separate from the network layer so it stays testable.
 enum ResponseKind: Equatable {
     case ok
     case pangolinLogin
@@ -54,7 +54,7 @@ enum ResponseKind: Equatable {
     static func classify(status: Int, contentType: String, location: String?, requestURL: URL?,
                          host: String, accept: String?) -> ResponseKind {
         if (300..<400).contains(status) {
-            // Relative Redirects (Django-Slash-Korrekturen) gehören zu Paperless, nicht zu Pangolin.
+            // Relative redirects (Django slash corrections) belong to Paperless, not to Pangolin.
             let location = location ?? ""
             let target = URL(string: location, relativeTo: requestURL)?.absoluteURL
             if location.contains("/auth/resource/") || target?.host() != host {
@@ -62,33 +62,33 @@ enum ResponseKind: Equatable {
             }
             return .failure(status)
         }
-        // Paperless kennt die API-Version vielleicht nicht, und DRF lehnt manche Accept-Header ab:
-        // dann einmal ohne Einschränkung wiederholen.
+        // Paperless may not know the API version, and DRF rejects some Accept headers:
+        // then retry once without restriction.
         if status == 406, accept != "*/*" { return .retryWithAnyAccept }
         if status == 401 || status == 403 {
-            // badger antwortet mit text/plain "Unauthorized", Paperless immer mit JSON.
+            // badger answers with text/plain "Unauthorized", Paperless always with JSON.
             return contentType.contains("json") ? .paperlessUnauthorized : .pangolinLogin
         }
         guard (200..<300).contains(status) else { return .failure(status) }
-        // Wenn Pangolin doch eine HTML-Seite mit 200 ausliefert (z. B. Anmelde- oder Wartungsseite).
+        // If Pangolin serves an HTML page with 200 after all (e.g. a sign-in or maintenance page).
         if contentType.contains("text/html"), accept?.contains("json") == true { return .pangolinLogin }
         return .ok
     }
 }
 
-/// Spricht die Paperless-REST-API hinter Pangolin.
+/// Talks to the Paperless REST API behind Pangolin.
 ///
-/// Durch Pangolin kommen wir mit dem Resource-Session-Cookie (`p_session_token`), das der
-/// Login-Dialog aus dem WebView in `HTTPCookieStorage.shared` kopiert. Paperless selbst
-/// authentifiziert per `Authorization: Token …` (wird vor der Session geprüft, also ohne CSRF),
-/// ersatzweise über sein eigenes Session-Cookie.
+/// We get through Pangolin with the resource session cookie (`p_session_token`) that the
+/// login dialog copies from the web view into `HTTPCookieStorage.shared`. Paperless itself
+/// authenticates via `Authorization: Token …` (checked before the session, so no CSRF),
+/// or else via its own session cookie.
 ///
-/// Hinweis: DELETE ohne Body wird von CrowdSec auf dem Pangolin-Stack über HTTP/3 geblockt.
-/// Die App löscht deshalb nichts per DELETE, sondern deaktiviert z. B. Workflows per PATCH.
+/// Note: CrowdSec on the Pangolin stack blocks DELETE without a body over HTTP/3.
+/// So the app never deletes via DELETE, and instead e.g. disables workflows via PATCH.
 final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     let baseURL: URL
     var token: String?
-    /// Paperless-Version aus dem `X-Version`-Header, z. B. "2.18.4".
+    /// Paperless version from the `X-Version` header, e.g. "2.18.4".
     private(set) var serverVersion: String?
 
     private lazy var session: URLSession = {
@@ -110,8 +110,8 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
     var host: String { baseURL.host() ?? "" }
     var hasToken: Bool { token?.isEmpty == false }
 
-    // Redirects auf fremde Hosts (Pangolin-Login unter proxy.…) nicht folgen, sonst
-    // landet deren HTML-Seite als "Antwort" im JSON-Decoder.
+    // Don't follow redirects to other hosts (Pangolin login under proxy.…), otherwise
+    // their HTML page ends up as the "response" in the JSON decoder.
     func urlSession(_ session: URLSession, task: URLSessionTask,
                     willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest) async -> URLRequest? {
@@ -120,7 +120,7 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
 
     // MARK: - Requests
 
-    /// URLComponents lässt `+` stehen, Django liest es als Leerzeichen (z. B. in `+02:00`).
+    /// URLComponents leaves `+` alone, Django reads it as a space (e.g. in `+02:00`).
     static func url(base: URL, path: String, query: [URLQueryItem]) -> URL {
         var components = URLComponents(url: base.appending(path: path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty {
@@ -197,7 +197,7 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         return try JSONDecoder().decode(T.self, from: data)
     }
 
-    // MARK: - Lesen
+    // MARK: - Reading
 
     func profile() async throws -> Profile {
         try await get("api/profile/")
@@ -207,7 +207,7 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         try await get("api/documents/", query: query.queryItems(page: page, pageSize: pageSize))
     }
 
-    /// Die zuletzt hinzugefügten Dokumente, unabhängig von Suche und Ansicht.
+    /// The most recently added documents, independent of search and view.
     func latestDocuments(count: Int = 25) async throws -> [Document] {
         let page: Page<Document> = try await get("api/documents/", query: [
             .init(name: "ordering", value: "-added"),
@@ -217,7 +217,7 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         return page.results
     }
 
-    /// Eine Seite der vollständigen Bibliothek mit Text, für Offline-Kopie und Spotlight.
+    /// One page of the full library with text, for the offline copy and Spotlight.
     func libraryPage(page: Int, modifiedAfter: String?, pageSize: Int = 100) async throws -> Page<Document> {
         var query: [URLQueryItem] = [
             .init(name: "page", value: String(page)),
@@ -229,7 +229,7 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         return try await get("api/documents/", query: query)
     }
 
-    /// Nur die IDs aller Dokumente, um Gelöschtes zu erkennen.
+    /// Only the IDs of all documents, to detect deleted ones.
     func allDocumentIDs() async throws -> [Int] {
         struct IDs: Decodable { let all: [Int]? }
         let page: IDs = try await get("api/documents/", query: [
@@ -247,9 +247,9 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         return page.results
     }
 
-    /// Holt einen API-Token mit Benutzername und Passwort (`/api/token/`).
-    /// Läuft bewusst ohne Wiederholung: Eine falsche Eingabe ergibt einen 4xx, und davon
-    /// sollen keine Serien entstehen.
+    /// Fetches an API token with user name and password (`/api/token/`).
+    /// Deliberately runs without retries: wrong input results in a 4xx, and those
+    /// should not turn into series.
     func obtainToken(username: String, password: String) async throws -> String {
         var req = request("api/token/", method: "POST")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -295,14 +295,14 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
         return list.tasks.first
     }
 
-    // MARK: - Schreiben
+    // MARK: - Writing
 
     func update(_ id: Int, _ update: DocumentUpdate) async throws -> Document {
         try await send("PATCH", "api/documents/\(id)/", body: update)
     }
 
-    /// Lädt eine Datei in den Consume-Workflow hoch und gibt die Task-ID zurück.
-    /// Der Body wird als Datei gestreamt, damit große Scans nicht komplett im Speicher landen.
+    /// Uploads a file into the consume workflow and returns the task ID.
+    /// The body is streamed as a file so large scans don't end up entirely in memory.
     func upload(fileURL: URL) async throws -> String {
         guard hasToken else { throw ClientError.tokenRequired }
         let boundary = "Ablage-\(UUID().uuidString)"
@@ -315,7 +315,7 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
 
         let (data, response) = try await session.upload(for: req, fromFile: bodyURL)
         _ = try validate(data, response, for: req)
-        // Paperless antwortet mit der Task-ID als JSON-String (v10: als Objekt).
+        // Paperless answers with the task ID as a JSON string (v10: as an object).
         if let id = try? JSONDecoder().decode(String.self, from: data) { return id }
         struct Wrapped: Decodable { let task_id: String }
         return try JSONDecoder().decode(Wrapped.self, from: data).task_id
@@ -340,7 +340,7 @@ final class PaperlessClient: NSObject, URLSessionTaskDelegate, @unchecked Sendab
     }
 }
 
-/// Ein gemeinsamer Temp-Ordner, der beim Start geleert wird.
+/// A shared temp folder that is emptied at launch.
 enum TempFiles {
     static let directory: URL = {
         let url = FileManager.default.temporaryDirectory.appending(path: "Ablage", directoryHint: .isDirectory)

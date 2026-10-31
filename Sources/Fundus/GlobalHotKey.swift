@@ -1,7 +1,7 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// Systemweiter Kurzbefehl über die Carbon-Hotkey-API. Braucht keine Bedienungshilfen-Freigabe.
+/// System-wide shortcut via the Carbon hotkey API. Needs no accessibility permission.
 @MainActor
 final class GlobalHotKey {
     private static var handlers: [UInt32: () -> Void] = [:]
@@ -11,7 +11,7 @@ final class GlobalHotKey {
     private var ref: EventHotKeyRef?
     private let id: UInt32
 
-    /// `keyCode` ist ein virtueller Tastencode (z. B. `kVK_ANSI_A`), `modifiers` Carbon-Flags (`cmdKey | optionKey`).
+    /// `keyCode` is a virtual key code (e.g. `kVK_ANSI_A`), `modifiers` are Carbon flags (`cmdKey | optionKey`).
     init?(keyCode: Int, modifiers: Int, action: @escaping () -> Void) {
         Self.installHandler()
         id = Self.nextID

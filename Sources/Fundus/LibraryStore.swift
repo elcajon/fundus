@@ -2,11 +2,11 @@ import AppKit
 import CoreSpotlight
 import UniformTypeIdentifiers
 
-/// Lokale Kopie der Bibliothek: Metadaten und Text aller Dokumente, Vorschaubilder und bereits
-/// geöffnete Vorschauen. Grundlage für Offline-Betrieb und Spotlight.
+/// Local copy of the library: metadata and text of all documents, thumbnails and previews
+/// opened before. Basis for offline mode and Spotlight.
 ///
-/// Liegt pro Server unter `~/Library/Caches/de.max-venz.ablage/<host>/`. Ist ein Cache und darf
-/// jederzeit gelöscht werden; die App lädt dann alles neu.
+/// Lives per server under `~/Library/Caches/de.max-venz.ablage/<host>/`. It is a cache and may
+/// be deleted at any time; the app then reloads everything.
 actor LibraryStore {
     struct Snapshot: Codable {
         var documents: [Int: Document] = [:]
@@ -14,7 +14,7 @@ actor LibraryStore {
         var correspondents: [NamedItem] = []
         var types: [NamedItem] = []
         var customFields: [CustomFieldDefinition]?
-        /// Zeitstempel des letzten erfolgreichen Abgleichs (Server-Zeit aus `modified`).
+        /// Timestamp of the last successful sync (server time from `modified`).
         var lastModified: String?
         var lastFullSync: Date?
     }
@@ -23,9 +23,9 @@ actor LibraryStore {
     private var snapshot = Snapshot()
     private var loaded = false
 
-    /// Wie viele geöffnete Vorschauen offline bleiben.
+    /// How many opened previews stay available offline.
     private let previewLimit = 150
-    /// Text pro Dokument begrenzen, damit Kopie und Spotlight-Index handlich bleiben.
+    /// Limit the text per document so the copy and the Spotlight index stay manageable.
     static let contentLimit = 50_000
 
     init(host: String, baseDirectory: URL? = nil) {
@@ -59,7 +59,7 @@ actor LibraryStore {
         }
     }
 
-    // MARK: Bibliothek
+    // MARK: Library
 
     func current() -> Snapshot {
         ensureLoaded()
@@ -85,7 +85,7 @@ actor LibraryStore {
         save()
     }
 
-    /// Übernimmt geänderte Dokumente. Gibt die gespeicherten Fassungen zurück.
+    /// Takes over changed documents. Returns the stored versions.
     @discardableResult
     func upsert(_ docs: [Document], lastModified: String?) -> [Document] {
         ensureLoaded()
@@ -95,7 +95,7 @@ actor LibraryStore {
             if let content = doc.content, content.count > Self.contentLimit {
                 doc.content = String(content.prefix(Self.contentLimit))
             }
-            // Listen-Antworten kürzen den Text; einen vollständigen Text nicht überschreiben.
+            // List responses truncate the text; don't overwrite a full text.
             if let old = snapshot.documents[doc.id], let oldContent = old.content,
                (doc.content?.count ?? 0) < oldContent.count, doc.modified == old.modified {
                 doc.content = oldContent
@@ -113,7 +113,7 @@ actor LibraryStore {
         return stored
     }
 
-    /// Entfernt Dokumente, die es auf dem Server nicht mehr gibt. Gibt die entfernten IDs zurück.
+    /// Removes documents that no longer exist on the server. Returns the removed IDs.
     func retainOnly(_ ids: Set<Int>) -> [Int] {
         ensureLoaded()
         let gone = snapshot.documents.keys.filter { !ids.contains($0) }
@@ -145,7 +145,7 @@ actor LibraryStore {
         }
     }
 
-    // MARK: Dateien
+    // MARK: Files
 
     nonisolated func thumbURL(_ id: Int) -> URL { root.appending(path: "thumbs/\(id)") }
     nonisolated func previewURL(_ id: Int) -> URL { root.appending(path: "previews/\(id)") }
@@ -159,7 +159,7 @@ actor LibraryStore {
     nonisolated func preview(_ id: Int) -> Data? {
         let url = previewURL(id)
         guard let data = try? Data(contentsOf: url) else { return nil }
-        // Zugriffszeit merken, damit die ältesten zuerst weichen.
+        // Remember the access time so the oldest ones go first.
         try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path())
         return data
     }
@@ -194,7 +194,7 @@ actor LibraryStore {
     }
 }
 
-/// Meldet Dokumente an Spotlight. Ein Treffer öffnet Fundus über `ablage://document/<id>`.
+/// Reports documents to Spotlight. A hit opens Fundus via `ablage://document/<id>`.
 enum SpotlightIndexer {
     static let domain = "de.max-venz.ablage.documents"
     static let enabledKey = "spotlightEnabled"
@@ -248,7 +248,7 @@ enum SpotlightIndexer {
         Log.sync.info("Spotlight: \(items.count) Dokumente gemeldet")
     }
 
-    /// Anzahl der gemeldeten Dokumente, direkt aus dem Spotlight-Index gelesen.
+    /// Number of reported documents, read directly from the Spotlight index.
     static func count() async -> Int? {
         await withCheckedContinuation { continuation in
             let context = CSSearchQueryContext()

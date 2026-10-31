@@ -1,12 +1,12 @@
-// Rendert das App-Icon (hell und dunkel) und das Menüleisten-Symbol.
-// Aufruf: swift scripts/make-icon.swift <Zielordner>
+// Renders the app icon (light and dark) and the menu bar icon.
+// Usage: swift scripts/make-icon.swift <target folder>
 import AppKit
 
 struct Theme {
     let top: NSColor
     let bottom: NSColor
     let ink: NSColor
-    /// Feine Kante, damit das helle Icon auch auf dunklem Grund Kontur hat.
+    /// A fine edge so the light icon has an outline on a dark background too.
     let rim: NSColor
 }
 
@@ -19,7 +19,7 @@ let dark = Theme(top: NSColor(red: 0.23, green: 0.24, blue: 0.26, alpha: 1),
                  ink: NSColor(red: 0.96, green: 0.94, blue: 0.90, alpha: 1),
                  rim: NSColor(white: 1, alpha: 0.12))
 
-/// Zeichnet das Motiv in ein Quadrat der Kantenlänge `size`: Blattkontur mit einem F.
+/// Draws the motif into a square with side length `size`: a sheet outline with an F.
 func draw(_ theme: Theme, size: CGFloat) {
     let s = size / 512
     let tile = NSBezierPath(roundedRect: NSRect(x: 50*s, y: 50*s, width: 412*s, height: 412*s),
@@ -51,7 +51,7 @@ func image(_ theme: Theme, size: CGFloat) -> Data {
     return rep.representation(using: .png, properties: [:])!
 }
 
-/// Menüleiste: nur das Motiv in Schwarz, macOS färbt es selbst ein (Template).
+/// Menu bar: just the motif in black, macOS tints it itself (template).
 func menuBar(size: CGFloat) -> Data {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size), pixelsHigh: Int(size),
                                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,

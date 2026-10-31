@@ -10,7 +10,7 @@ struct FundusApp: App {
     @AppStorage(AppSettings.menuBarKey) private var showMenuBar = true
 
     var body: some Scene {
-        // Ein einziges Hauptfenster: openWindow holt es nach vorne statt ein zweites zu öffnen.
+        // A single main window: openWindow brings it to the front instead of opening a second one.
         Window("Fundus", id: "library") {
             RootView()
                 .environment(model)
@@ -18,7 +18,7 @@ struct FundusApp: App {
         }
         .windowToolbarStyle(.unified)
         .defaultSize(width: 1280, height: 860)
-        // Im Menüleisten-Betrieb geht das Fenster beim Start nicht auf.
+        // In menu bar mode the window doesn't open at launch.
         .defaultLaunchBehavior(AppSettings.startsInMenuBar ? .suppressed : .automatic)
         .commands { FundusCommands(model: model) }
 
@@ -108,8 +108,8 @@ struct FundusCommands: Commands {
     }
 }
 
-/// Symbol in der Menüleiste. Es ist immer da und stellt deshalb auch ohne offenes Fenster
-/// die Aktion zum Öffnen des Hauptfensters bereit.
+/// Menu bar icon. It is always there and therefore provides the action to open the main
+/// window, even without an open window.
 struct MenuBarLabel: View {
     let model: AppModel
     @Environment(\.openWindow) private var openWindow
@@ -140,15 +140,15 @@ enum AppSettings {
         NewDocumentWatcher.registerDefaults()
     }
 
-    /// Nur Menüleiste: kein Dock-Symbol, das Fenster öffnet sich über das Menüleisten-Symbol.
+    /// Menu bar only: no Dock icon, the window opens from the menu bar icon.
     static var menuBarOnly: Bool {
         UserDefaults.standard.bool(forKey: hideDockKey) && UserDefaults.standard.bool(forKey: menuBarKey)
     }
 
-    /// Vom Anmeldeobjekt gestartet: still, ohne Fenster und Dock-Symbol.
+    /// Started by the login item: silently, without a window and Dock icon.
     static let launchedSilently = CommandLine.arguments.contains("--silent")
 
-    /// Beim Start ohne Fenster, sofern schon ein Server eingerichtet ist.
+    /// Launch without a window, provided a server is already set up.
     static var startsInMenuBar: Bool {
         registerDefaults()
         return (menuBarOnly || launchedSilently) && UserDefaults.standard.string(forKey: "serverURL") != nil
@@ -158,7 +158,7 @@ enum AppSettings {
         NSApp.setActivationPolicy(menuBarOnly || startsInMenuBar ? .accessory : .regular)
     }
 
-    /// Mit Menüleisten-Symbol beendet ⌘Q die App nicht, sondern zieht sie in die Menüleiste zurück.
+    /// With a menu bar icon, ⌘Q doesn't quit the app but retreats it into the menu bar.
     static var keepsRunningInMenuBar: Bool {
         UserDefaults.standard.bool(forKey: menuBarKey)
     }
@@ -167,12 +167,12 @@ enum AppSettings {
         NSApp.setActivationPolicy(menuBarOnly ? .accessory : .regular)
     }
 
-    /// Dock-Symbol zeigen, sobald ein Fenster aufgeht (außer im reinen Menüleisten-Betrieb).
+    /// Show the Dock icon as soon as a window opens (except in menu-bar-only mode).
     @MainActor static func showInDock() {
         applyDockPolicy()
     }
 
-    /// Fenster schließen und das Dock-Symbol ausblenden; die App läuft in der Menüleiste weiter.
+    /// Close windows and hide the Dock icon; the app keeps running in the menu bar.
     @MainActor static func retreatToMenuBar() {
         for window in NSApp.windows where window.isVisible && window.canBecomeMain && !(window is NSPanel) {
             window.close()
@@ -181,13 +181,13 @@ enum AppSettings {
         NSApp.hide(nil)
     }
 
-    /// Wirklich beenden, z. B. über das Menüleisten-Menü.
+    /// Really quit, e.g. from the menu bar menu.
     @MainActor static func quit() {
         AppDelegate.quitRequested = true
         NSApp.terminate(nil)
     }
 
-    /// Anmeldeobjekt ist die Hilfs-App im Paket; sie startet Fundus mit `--silent`.
+    /// The login item is the helper app in the bundle; it starts Fundus with `--silent`.
     static let launcher = SMAppService.loginItem(identifier: "de.max-venz.ablage.launcher")
 
     static var launchesAtLogin: Bool {
@@ -204,7 +204,7 @@ enum AppSettings {
         }
     }
 
-    /// Frühere Versionen haben die App selbst eingetragen; auf die Hilfs-App umstellen.
+    /// Earlier versions registered the app itself; switch over to the helper app.
     static func migrateLoginItem() {
         guard SMAppService.mainApp.status == .enabled else { return }
         do {
@@ -232,8 +232,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppSettings.applyLaunchPolicy()
         if !AppSettings.startsInMenuBar { NSApp.activate(ignoringOtherApps: true) }
         AppSettings.migrateLoginItem()
-        // Der Watcher ist zugleich Delegate des Mitteilungszentrums. Er muss beim Start stehen, sonst
-        // geht der Klick auf eine Mitteilung verloren, die Fundus erst gestartet hat.
+        // The watcher is also the notification center's delegate. It has to exist at launch, otherwise
+        // a click on a notification that launched Fundus gets lost.
         _ = model.watcher
         QuickSearchController.shared.applySetting()
         Appearance.apply(UserDefaults.standard.string(forKey: Appearance.key))
@@ -243,8 +243,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// ⌘Q zieht die App in die Menüleiste zurück. Beendet wird sie über das Menüleisten-Menü,
-    /// „Vollständig beenden“ oder wenn das System fragt (Abmelden, Ausschalten, Dock, AppleScript).
+    /// ⌘Q retreats the app into the menu bar. It quits via the menu bar menu,
+    /// “Quit Fundus completely” or when the system asks (log out, shut down, Dock, AppleScript).
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if Self.quitRequested || !AppSettings.keepsRunningInMenuBar {
             return .terminateNow
@@ -261,13 +261,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         TempFiles.cleanUp()
     }
 
-    /// Mit aktiven Mitteilungen oder Menüleisten-Symbol läuft die App ohne Fenster weiter.
+    /// With notifications or the menu bar icon enabled, the app keeps running without a window.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         let defaults = UserDefaults.standard
         return !defaults.bool(forKey: NewDocumentWatcher.enabledKey) && !defaults.bool(forKey: AppSettings.menuBarKey)
     }
 
-    /// Erneutes Öffnen (Finder, Spotlight-App-Treffer) zeigt das Fenster.
+    /// Reopening (Finder, Spotlight app hit) shows the window.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         if !hasVisibleWindows { model.showMainWindow() }
         return true
@@ -290,7 +290,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 enum Appearance {
     static let key = "appearance"
 
-    /// Eigenes Menüleisten-Symbol; als Template färbt macOS es hell oder dunkel ein.
+    /// Custom menu bar icon; as a template, macOS tints it light or dark.
     static let menuBarIcon: NSImage? = {
         guard let url = Bundle.main.url(forResource: "MenuBarIcon", withExtension: "png"),
               let image = NSImage(contentsOf: url) else { return nil }
@@ -299,8 +299,8 @@ enum Appearance {
         return image
     }()
 
-    /// `.icns` kennt keine Varianten für Hell und Dunkel. Das Dock-Symbol der laufenden App
-    /// lässt sich aber austauschen; im Finder bleibt es die helle Fassung.
+    /// `.icns` has no light and dark variants. The Dock icon of the running app can be swapped,
+    /// though; in Finder it stays the light version.
     @MainActor static func applyIcon() {
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         guard isDark, let url = Bundle.main.url(forResource: "AppIconDark", withExtension: "icns"),
@@ -336,7 +336,7 @@ struct RootView: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
-            // Damit Mitteilungen, Spotlight und Menüleiste das Fenster öffnen können, wenn es zu ist.
+            // So notifications, Spotlight and the menu bar can open the window when it is closed.
             model.registerWindowOpener { openWindow(id: "library") }
         }
         .sheet(isPresented: $model.showLogin) {

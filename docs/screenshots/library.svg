@@ -24,7 +24,7 @@
     <text x="140" y="57" font-size="14" font-weight="600" fill="#1d1d1f">Fundus</text>
     <text x="140" y="75" font-size="12" fill="#86868b">248 documents</text>
 
-    <!-- Werkzeugleiste -->
+    <!-- Toolbar -->
     <g fill="#48484a">
       <g transform="translate(846,50)">
         <rect width="32" height="28" rx="8" fill="#e6e4e0"/>
@@ -45,9 +45,9 @@
     <path d="M994 68l4 4" stroke="#86868b" stroke-width="1.6" stroke-linecap="round"/>
     <text x="1004" y="69" font-size="12.5" fill="#86868b">Search, #tag, @sender, typ:type</text>
 
-    <!-- Raster -->
+    <!-- Grid -->
     <g>
-      <!-- Dokument 1 -->
+      <!-- Document 1 -->
       <g transform="translate(96,124)">
         <g filter="url(#cardShadow)"><rect width="260" height="340" rx="4" fill="#fff"/></g>
         <rect x="24" y="24" width="96" height="10" rx="3" fill="#1d4ed8"/>
@@ -71,7 +71,7 @@
         </g>
       </g>
 
-      <!-- Dokument 2 (Kassenbon, schmal) -->
+      <!-- Document 2 (receipt, narrow) -->
       <g transform="translate(416,124)">
         <g filter="url(#cardShadow)"><rect x="60" width="140" height="340" rx="4" fill="#fff"/></g>
         <g fill="#c7c7cc">
@@ -97,7 +97,7 @@
         </g>
       </g>
 
-      <!-- Dokument 3 -->
+      <!-- Document 3 -->
       <g transform="translate(736,124)">
         <g filter="url(#cardShadow)"><rect width="260" height="340" rx="4" fill="#fff"/></g>
         <circle cx="216" cy="46" r="16" fill="#eef1f8"/>
@@ -123,7 +123,7 @@
         </g>
       </g>
 
-      <!-- zweite Reihe, angeschnitten -->
+      <!-- second row, cut off -->
       <g opacity="0.96">
         <g transform="translate(96,560)"><g filter="url(#cardShadow)"><rect width="260" height="210" rx="4" fill="#fff"/></g>
           <rect x="24" y="28" width="150" height="9" rx="3" fill="#48484a"/>

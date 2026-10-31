@@ -10,7 +10,7 @@ final class AppModel {
         case unconfigured
         case connecting
         case ready
-        /// Server nicht erreichbar, die App zeigt die lokale Kopie.
+        /// Server unreachable, the app shows the local copy.
         case offline(String)
         case failed(String)
     }
@@ -33,10 +33,10 @@ final class AppModel {
     var customFields: [CustomFieldDefinition] = []
     private var customFieldsByID: [Int: CustomFieldDefinition] = [:]
 
-    // MARK: Ansicht
+    // MARK: View
 
     var selectedIDs: Set<Int> = []
-    /// Das zuletzt angeklickte Dokument: Ziel für Lesemodus, Pfeiltasten und Bereichsauswahl.
+    /// The last clicked document: target for reading mode, arrow keys and range selection.
     var focusedID: Int?
     var readerID: Int?
     var showInspector = false
@@ -51,7 +51,7 @@ final class AppModel {
         }
     }
 
-    /// Freitext im Suchfeld. Abgeschlossene `#tag`/`@name`/`typ:x`-Wörter werden zu Tokens.
+    /// Free text in the search field. Completed `#tag`/`@name`/`typ:x` words become tokens.
     var search = "" {
         didSet {
             guard !isNormalizingSearch, search != oldValue else { return }
@@ -70,16 +70,16 @@ final class AppModel {
     private var nextPage: Int? = 1
     private var loadGeneration = 0
 
-    // MARK: Hintergrund
+    // MARK: Background
 
     var imports: [ImportJob] = []
     var activeImportCount: Int { imports.filter(\.isActive).count }
     var showImports = false
-    /// Neueste vom Watcher gemeldete Dokumente, für das Menüleisten-Menü.
+    /// Newest documents reported by the watcher, for the menu bar menu.
     var recentNew: [Document] = []
     var isSyncing = false
     var lastSync: Date?
-    /// Dokumente, die diese App selbst importiert hat: nicht zusätzlich als „neu“ melden.
+    /// Documents this app imported itself: don't report them as “new” as well.
     @ObservationIgnored var ownImports: Set<Int> = []
 
     private(set) var client: PaperlessClient?
@@ -100,9 +100,9 @@ final class AppModel {
         }
     }
 
-    // MARK: - Einstellungen
+    // MARK: - Settings
 
-    // Schlüsselbund-Werte nur einmal lesen: jeder Zugriff kann sonst eine Passwortabfrage auslösen.
+    // Read keychain values only once: otherwise every access can trigger a password prompt.
     @ObservationIgnored private var secretCache: [String: String] = [:]
 
     private func secret(_ account: String) -> String {
@@ -112,8 +112,8 @@ final class AppModel {
         return value
     }
 
-    /// Liest die Geheimnisse abseits des Hauptthreads vor. Eine Schlüsselbund-Abfrage blockiert so
-    /// nicht das Fenster, und die späteren Zugriffe kommen aus dem Cache.
+    /// Reads the secrets ahead of time, off the main thread. That way a keychain prompt doesn't
+    /// block the window, and later accesses come from the cache.
     private func preloadSecrets() async {
         guard let serverURL else { return }
         let accounts = [serverURL.absoluteString].filter { secretCache[$0] == nil }
@@ -161,7 +161,7 @@ final class AppModel {
         await connect()
     }
 
-    // MARK: - Verbindung
+    // MARK: - Connection
 
     func connect() async {
         guard let serverURL else { phase = .unconfigured; return }
@@ -190,7 +190,7 @@ final class AppModel {
         }
     }
 
-    /// Zeigt die lokale Kopie, falls vorhanden, sonst den Fehler.
+    /// Shows the local copy if there is one, otherwise the error.
     private func showOffline(_ reason: String) async {
         guard let store, !(await store.isEmpty) else {
             phase = .failed(reason)
@@ -206,8 +206,8 @@ final class AppModel {
     private func finishConnecting(_ client: PaperlessClient) async throws {
         let profile = try await client.profile()
         self.profile = profile
-        // Nach dem SSO-Login kennt Paperless uns per Session-Cookie. Wenn der Nutzer schon einen
-        // API-Token hat, übernehmen wir ihn, dann funktionieren auch Uploads ohne CSRF-Tanz.
+        // After the SSO login Paperless knows us by session cookie. If the user already has an
+        // API token, we adopt it; then uploads work too, without the CSRF dance.
         if apiToken.isEmpty, let token = profile.authToken, !token.isEmpty {
             apiToken = token
         }
@@ -220,7 +220,7 @@ final class AppModel {
         startSync()
     }
 
-    /// Wird vom Login-WebView bei jeder fertig geladenen Seite auf dem Paperless-Host aufgerufen.
+    /// Called by the login web view for every finished page load on the Paperless host.
     func loginWebViewLanded() async {
         guard let client else { return }
         await CookieBridge.syncFromWebView(host: client.host)
@@ -229,11 +229,11 @@ final class AppModel {
         } catch ClientError.paperlessUnauthorized {
             loginHint = String(localized: "Jetzt noch bei Paperless anmelden.")
         } catch {
-            // Noch mitten im Login-Ablauf, einfach weiter warten.
+            // Still in the middle of the login flow, just keep waiting.
         }
     }
 
-    /// Anmeldung mit Benutzername und Passwort: holt den API-Token von Paperless.
+    /// Sign-in with user name and password: fetches the API token from Paperless.
     func signIn(username: String, password: String) async -> Bool {
         guard let client else { return false }
         do {
@@ -276,7 +276,7 @@ final class AppModel {
         phase = .unconfigured
     }
 
-    // MARK: - Daten
+    // MARK: - Data
 
     func loadMetadata() async {
         guard let client else { return }
@@ -291,7 +291,7 @@ final class AppModel {
             Log.network.error("Tags/Korrespondenten/Typen nicht geladen: \(String(describing: error), privacy: .public)")
             toast = String(localized: "Tags und Korrespondenten konnten nicht geladen werden: \(error.localizedDescription)")
         }
-        // Eigene Abfrage: Ohne Berechtigung für Felder sollen Tags trotzdem funktionieren.
+        // Separate request: without permission for fields, tags should still work.
         do {
             let fields = try await client.customFields()
             applyCustomFields(fields)
@@ -308,7 +308,7 @@ final class AppModel {
 
     func customField(_ id: Int) -> CustomFieldDefinition? { customFieldsByID[id] }
 
-    /// Lädt ein Dokument vollständig nach, z. B. wenn die Liste keine Felder enthielt.
+    /// Reloads a document in full, e.g. when the list did not include fields.
     @discardableResult
     func refreshDocument(_ id: Int) async -> Document? {
         guard let client, phase == .ready, let fresh = try? await client.document(id) else { return nil }
@@ -319,8 +319,8 @@ final class AppModel {
         return doc
     }
 
-    /// Paperless-Workflows („Dokument aktualisiert“) können nach dem Sichern noch Felder, Tags
-    /// oder Zuordnungen ändern. Kurz danach nachladen, damit die Ansicht stimmt.
+    /// Paperless workflows (“document updated”) can still change fields, tags or assignments
+    /// after saving. Reload shortly afterwards so the view is right.
     private func checkWorkflowChanges(after saved: Document) async {
         try? await Task.sleep(for: .seconds(2))
         guard let fresh = await refreshDocument(saved.id), fresh.modified != saved.modified else { return }
@@ -330,7 +330,7 @@ final class AppModel {
         }
     }
 
-    /// Titel verknüpfter Dokumente, aus dem Raster oder der lokalen Kopie.
+    /// Titles of linked documents, from the grid or the local copy.
     func titles(for ids: [Int]) async -> [Int: String] {
         var result: [Int: String] = [:]
         let stored = await store?.current().documents ?? [:]
@@ -340,8 +340,8 @@ final class AppModel {
         return result
     }
 
-    /// Schnellsuche: lokale Kopie mit denselben Filtern wie das Suchfeld (#Tag, @Absender, typ:).
-    /// Treffer im Titel stehen vorne.
+    /// Quick Search: local copy with the same filters as the search field (#tag, @sender, typ:).
+    /// Matches in the title come first.
     func quickSearch(_ input: String, limit: Int = QuickSearchController.maxRows * 3) async -> [Document] {
         guard let store else { return [] }
         let (text, tokens) = parser.parse(input, final: true)
@@ -355,7 +355,7 @@ final class AppModel {
         return Array((inTitle + found.filter { !ids.contains($0.id) }).prefix(limit))
     }
 
-    /// Dokumente zum Verknüpfen suchen (lokale Kopie, damit das Tippen keine Anfragen erzeugt).
+    /// Search documents to link (local copy, so typing doesn't cause requests).
     func linkCandidates(matching text: String, excluding: Set<Int>) async -> [Document] {
         guard let store, !text.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
         let found = await store.documents(matching: DocumentQuery(text: text))
@@ -379,7 +379,7 @@ final class AppModel {
         totalCount = 0
         isLoadingPage = false
         await loadMore()
-        // Das gerade gelesene Dokument bleibt, auch wenn es nicht auf der ersten Seite liegt.
+        // The document being read stays, even if it isn't on the first page.
         if let reading, document(reading.id) == nil { documents.insert(reading, at: 0) }
         selectedIDs = selectedIDs.filter { document($0) != nil }
         if let focusedID, document(focusedID) == nil { self.focusedID = nil }
@@ -410,7 +410,7 @@ final class AppModel {
             guard generation == loadGeneration else { return }
             if (error as? URLError)?.code == .cancelled { return }
             if error is URLError {
-                // Netz weg: auf die lokale Kopie umschalten.
+                // Network gone: switch to the local copy.
                 await showOffline(error.localizedDescription)
                 return
             }
@@ -426,7 +426,7 @@ final class AppModel {
         nextPage = nil
     }
 
-    // MARK: - Abgleich (Offline-Kopie und Spotlight)
+    // MARK: - Sync (offline copy and Spotlight)
 
     func startSync() {
         syncTask?.cancel()
@@ -461,7 +461,7 @@ final class AppModel {
                 let ids = try await client.allDocumentIDs()
                 if !ids.isEmpty { removed = await store.retainOnly(Set(ids)) }
             }
-            // Beim ersten Mal (oder nach Änderungen am Index-Format) alles melden, sonst nur Änderungen.
+            // The first time (or after changes to the index format) report everything, otherwise only changes.
             let reindexAll = SpotlightIndexer.isEnabled && defaults.integer(forKey: Self.spotlightVersionKey) < Self.spotlightVersion
             if reindexAll { await SpotlightIndexer.removeAll() }
             let toIndex = reindexAll ? Array(await store.current().documents.values) : changed
@@ -479,8 +479,8 @@ final class AppModel {
     private static let spotlightVersionKey = "spotlightIndexVersion"
     private static let spotlightVersion = 2
 
-    /// Lädt fehlende Vorschaubilder nacheinander nach, damit Offline-Raster und Spotlight sie haben.
-    /// Bricht ab, sobald Pangolin eine Anmeldung verlangt (keine 401-Salven).
+    /// Loads missing thumbnails one after another, so the offline grid and Spotlight have them.
+    /// Stops as soon as Pangolin asks for a sign-in (no volleys of 401s).
     private func fetchMissingThumbnails() async {
         guard let client, let store else { return }
         let missing = await store.current().documents.keys.sorted(by: >)
@@ -533,7 +533,7 @@ final class AppModel {
         Task { await syncLibrary(forceFull: true) }
     }
 
-    // MARK: - Suche
+    // MARK: - Search
 
     var parser: SearchParser {
         SearchParser(tags: tags, correspondents: correspondents, types: documentTypes)
@@ -587,14 +587,14 @@ final class AppModel {
         }
     }
 
-    // MARK: - Auswahl
+    // MARK: - Selection
 
     func document(_ id: Int?) -> Document? {
         guard let id else { return nil }
         return documents.first { $0.id == id }
     }
 
-    /// Klick auf ein Dokument, mit ⌘ zum Hinzufügen und ⇧ für Bereiche.
+    /// Click on a document, with ⌘ to add and ⇧ for ranges.
     func click(_ id: Int, modifiers: NSEvent.ModifierFlags) {
         if modifiers.contains(.command) {
             if selectedIDs.contains(id) {
@@ -624,7 +624,7 @@ final class AppModel {
         if focusedID == nil { focusedID = documents.first?.id }
     }
 
-    /// Worauf Teilen, Export & Co. wirken: im Lesemodus das offene Dokument, sonst die Auswahl.
+    /// What share, export & co. act on: in reading mode the open document, otherwise the selection.
     var actionTargets: [Document] {
         if let reader = document(readerID) { return [reader] }
         return documents.filter { selectedIDs.contains($0.id) }
@@ -657,16 +657,16 @@ final class AppModel {
         readerID = nil
     }
 
-    // MARK: - Bearbeiten
+    // MARK: - Editing
 
-    /// Speichert Änderungen und ersetzt das Dokument in Liste und lokaler Kopie.
+    /// Saves changes and replaces the document in the list and the local copy.
     @discardableResult
     func save(_ id: Int, _ update: DocumentUpdate) async -> Bool {
         guard let client else { return false }
         do {
             var saved = try await client.update(id, update)
             if let old = document(id) {
-                // Die Antwort enthält den vollen Text; für das Raster genügt der bisherige.
+                // The response contains the full text; the grid only needs the existing one.
                 saved.searchHit = old.searchHit
             }
             replace(saved)
@@ -684,7 +684,7 @@ final class AppModel {
     private func replace(_ doc: Document) {
         guard let index = documents.firstIndex(where: { $0.id == doc.id }) else { return }
         documents[index] = doc
-        // Passt es nicht mehr zum Filter (z. B. Eingang erledigt), fällt es aus der Liste.
+        // If it no longer matches the filter (e.g. inbox done), it drops out of the list.
         if searchTokens.contains(.inbox), inboxTagIDs.isDisjoint(with: doc.tags) {
             let wasReader = readerID == doc.id
             let next = documents.indices.contains(index + 1) ? documents[index + 1].id
@@ -700,7 +700,7 @@ final class AppModel {
 
     func isInInbox(_ doc: Document) -> Bool { !inboxTagIDs.isDisjoint(with: doc.tags) }
 
-    /// Entfernt die Eingangs-Tags und springt zum nächsten Dokument.
+    /// Removes the inbox tags and jumps to the next document.
     func markDone(_ id: Int, with update: DocumentUpdate? = nil) async {
         guard let doc = document(id) else { return }
         var change = update ?? DocumentUpdate(doc)
@@ -711,7 +711,7 @@ final class AppModel {
         }
     }
 
-    // MARK: - Importe
+    // MARK: - Imports
 
     struct ImportJob: Identifiable {
         enum State: Equatable {
@@ -734,7 +734,7 @@ final class AppModel {
     var failedImportCount: Int { imports.filter(\.isFailed).count }
 
     func upload(_ urls: [URL]) async {
-        // Eigene Dateien (aus dem Fenster gezogen) nicht wieder importieren.
+        // Don't re-import our own files (dragged out of the window).
         let files = urls.filter { !TempFiles.contains($0) }
         guard let client, !files.isEmpty else { return }
         guard client.hasToken else {
@@ -768,7 +768,7 @@ final class AppModel {
             let taskID = try await client.upload(fileURL: url)
             updateJob(jobID) { $0.taskID = taskID; $0.state = .processing }
             Log.imports.info("\(url.lastPathComponent, privacy: .public) hochgeladen, Task \(taskID, privacy: .public)")
-            // Verarbeitung abwarten: OCR kann dauern, nach 15 Minuten geben wir auf.
+            // Wait for processing: OCR can take a while, we give up after 15 minutes.
             let deadline = Date().addingTimeInterval(15 * 60)
             while Date() < deadline {
                 try await Task.sleep(for: .seconds(3))
@@ -807,9 +807,9 @@ final class AppModel {
         Task { await upload(panel.urls) }
     }
 
-    // MARK: - Teilen, Export, Ziehen
+    // MARK: - Share, export, drag
 
-    /// Lädt das Original in den Temp-Ordner, damit Teilen, Export und Ziehen echte Dateien haben.
+    /// Downloads the original into the temp folder so share, export and drag have real files.
     func originalFile(_ doc: Document) async throws -> URL {
         guard let client else { throw ClientError.notConfigured }
         let dir = TempFiles.directory.appending(path: "doc-\(doc.id)", directoryHint: .isDirectory)
@@ -887,7 +887,7 @@ final class AppModel {
         return candidate
     }
 
-    /// Stellt das Original beim Ziehen erst bereit, wenn es irgendwo abgelegt wird.
+    /// Provides the original while dragging only once it is dropped somewhere.
     func dragProvider(for doc: Document) -> NSItemProvider {
         let provider = NSItemProvider()
         let ext = (doc.exportFileName as NSString).pathExtension
@@ -909,9 +909,9 @@ final class AppModel {
         return provider
     }
 
-    // MARK: - Neue Dokumente
+    // MARK: - New documents
 
-    /// Neue Dokumente vorne einsortieren, ohne das Raster neu zu laden.
+    /// Insert new documents at the front without reloading the grid.
     func insertNewDocuments(_ docs: [Document]) {
         guard !query.isFiltered, sort == .created || sort == .added else { return }
         let known = Set(documents.map(\.id))
@@ -930,14 +930,14 @@ final class AppModel {
         if openWindowAction == nil { openWindowAction = action }
     }
 
-    /// Holt das Hauptfenster nach vorne, auch im Menüleisten-Betrieb ohne Dock-Symbol.
+    /// Brings the main window to the front, also in menu bar mode without a Dock icon.
     func showMainWindow() {
         AppSettings.showInDock()
         NSApp.activate(ignoringOtherApps: true)
         openWindowAction?()
     }
 
-    /// Öffnet ein Dokument auch dann, wenn es noch nicht im geladenen Raster steckt.
+    /// Opens a document even if it isn't in the loaded grid yet.
     func open(documentID id: Int) async {
         showMainWindow()
         if document(id) == nil {
@@ -955,7 +955,7 @@ final class AppModel {
     }
 
     func handle(url: URL) {
-        // ablage://document/123 oder fundus://document/123
+        // ablage://document/123 or fundus://document/123
         guard url.scheme == "ablage" || url.scheme == "fundus", url.host() == "document",
               let id = Int(url.lastPathComponent) else { return }
         Task { await open(documentID: id) }
@@ -968,7 +968,7 @@ final class AppModel {
     func typeName(_ id: Int?) -> String? { id.flatMap { typesByID[$0]?.name } }
 }
 
-/// Vorschaubilder: Speicher-Cache mit Obergrenze, darunter die Kopie auf der Platte.
+/// Thumbnails: memory cache with an upper limit, backed by the copy on disk.
 actor ThumbnailCache {
     private let memory: NSCache<NSNumber, NSImage> = {
         let cache = NSCache<NSNumber, NSImage>()
@@ -988,8 +988,8 @@ actor ThumbnailCache {
             memory.setObject(image, forKey: id as NSNumber)
             return image
         }
-        // Solange Pangolin eine Anmeldung verlangt, keine 401-Salven erzeugen: CrowdSec wertet
-        // 4xx-Serien aus und sperrt sonst die eigene IP.
+        // While Pangolin asks for a sign-in, don't cause volleys of 401s: CrowdSec evaluates
+        // series of 4xx responses and otherwise blocks our own IP.
         guard !blocked, let client else { return nil }
         if let task = inFlight[id] { return await task.value }
         let store = self.store

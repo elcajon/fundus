@@ -113,7 +113,7 @@ struct SearchTests {
     @Test("Exakter Name schlägt längere Präfix-Treffer")
     func exactBeatsPrefix() {
         #expect(parser.resolve("steuer", kind: .tag)?.id == 1)
-        // "Ste" ist mehrdeutig (Steuer, Steuerberater).
+        // "Ste" is ambiguous (Steuer, Steuerberater).
         #expect(parser.resolve("ste", kind: .tag) == nil)
         #expect(parser.resolve("steuerb", kind: .tag)?.id == 3)
     }
@@ -215,7 +215,7 @@ struct LibraryStoreTests {
         let store = LibraryStore(host: "test", baseDirectory: base)
         defer { try? FileManager.default.removeItem(at: base) }
         await store.upsert([doc(1, content: "vollständiger langer Text", modified: "2026-01-01")], lastModified: "2026-01-01")
-        // Gekürzte Listenantwort mit gleichem Stand überschreibt den vollen Text nicht.
+        // A truncated list response with the same state doesn't overwrite the full text.
         await store.upsert([doc(1, content: "voll…", modified: "2026-01-01")], lastModified: nil)
         let snapshot = await store.current()
         #expect(snapshot.documents[1]?.content == "vollständiger langer Text")
@@ -267,7 +267,7 @@ struct CustomFieldTests {
         let json = #"{"id": 2, "name": "Status", "data_type": "select", "extra_data": {"select_options": ["Offen", "Bezahlt"]}}"#
         let field = try JSONDecoder().decode(CustomFieldDefinition.self, from: Data(json.utf8))
         #expect(field.label(for: .int(1)) == "Bezahlt")
-        // Round-Trip über die lokale Kopie.
+        // Round trip through the local copy.
         let again = try JSONDecoder().decode(CustomFieldDefinition.self, from: JSONEncoder().encode(field))
         #expect(again == field)
     }
@@ -296,12 +296,12 @@ struct CustomFieldTests {
         #expect(sent.count == 2)
         #expect(sent[1]["value"] is NSNull)
 
-        // Nach dem Sichern gilt der neue Stand als unverändert.
+        // After saving, the new state counts as unchanged.
         var saved = doc
         saved.customFields = update.customFields
         #expect(update == DocumentUpdate(saved))
 
-        // Unbekannte Felder (nil) nie überschreiben.
+        // Never overwrite unknown fields (nil).
         doc.customFields = nil
         var blind = DocumentUpdate(doc)
         blind.customFields = [CustomFieldInstance(field: 9, value: .int(1))]

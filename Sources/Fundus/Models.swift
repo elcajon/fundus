@@ -6,7 +6,7 @@ struct Page<T: Decodable>: Decodable {
     let results: [T]
 }
 
-/// `/api/tasks/` ist je nach Paperless-Version eine einfache Liste oder paginiert.
+/// Depending on the Paperless version, `/api/tasks/` is a plain list or paginated.
 struct TaskList: Decodable {
     let tasks: [TaskStatus]
 
@@ -32,7 +32,7 @@ struct Document: Codable, Identifiable, Hashable {
     let pageCount: Int?
     let originalFileName: String?
     var searchHit: SearchHit?
-    /// `nil`, wenn die Antwort die Felder nicht enthielt (z. B. Listen mit `fields=`).
+    /// `nil` if the response didn't include the fields (e.g. lists with `fields=`).
     var customFields: [CustomFieldInstance]?
 
     enum CodingKeys: String, CodingKey {
@@ -44,7 +44,7 @@ struct Document: Codable, Identifiable, Hashable {
         case searchHit = "__search_hit__"
     }
 
-    /// Paperless liefert je nach API-Version "2026-09-08" oder einen vollen ISO-Zeitstempel.
+    /// Depending on the API version, Paperless returns "2026-09-08" or a full ISO timestamp.
     var createdDate: Date? { created.flatMap(Document.day(from:)) }
     var addedDate: Date? { added.flatMap(Document.day(from:)) }
 
@@ -60,7 +60,7 @@ struct Document: Codable, Identifiable, Hashable {
         return f
     }()
 
-    /// Dateiname für Export, Teilen und Ziehen, ohne Pfadtrenner.
+    /// File name for export, share and drag, without path separators.
     var exportFileName: String {
         let name = originalFileName ?? "\(title).pdf"
         return name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
@@ -102,7 +102,7 @@ struct NamedItem: Codable, Identifiable, Hashable {
         id = try c.decode(Int.self, forKey: .id)
         name = try c.decode(String.self, forKey: .name)
         documentCount = try? c.decode(Int.self, forKey: .documentCount)
-        // Bei alten API-Versionen ist color ein Index statt eines Hex-Strings.
+        // In old API versions color is an index instead of a hex string.
         color = try? c.decode(String.self, forKey: .color)
         textColor = try? c.decode(String.self, forKey: .textColor)
         isInboxTag = (try? c.decode(Bool.self, forKey: .isInboxTag)) ?? false
@@ -128,9 +128,9 @@ struct Profile: Decodable {
     }
 }
 
-// MARK: - Benutzerdefinierte Felder
+// MARK: - Custom fields
 
-/// Wert eines benutzerdefinierten Felds, so wie Paperless ihn als JSON liefert.
+/// Value of a custom field, as Paperless returns it in JSON.
 enum FieldValue: Codable, Hashable {
     case null
     case bool(Bool)
@@ -223,7 +223,7 @@ struct CustomFieldDefinition: Codable, Identifiable, Hashable {
             if let options = try? c.decodeIfPresent([Option].self, forKey: .selectOptions) {
                 selectOptions = options
             } else if let labels = try? c.decodeIfPresent([String?].self, forKey: .selectOptions) {
-                // Vor Paperless 2.14: Liste von Namen, der Wert ist der Index.
+                // Before Paperless 2.14: a list of names, the value is the index.
                 selectOptions = labels.enumerated().map { Option(id: .int($0.offset), label: $0.element ?? "") }
             }
         }
@@ -260,7 +260,7 @@ struct CustomFieldDefinition: Codable, Identifiable, Hashable {
     }
 }
 
-/// Geldbeträge speichert Paperless als "EUR12.50" (ältere Werte auch als reine Zahl).
+/// Paperless stores amounts as "EUR12.50" (older values also as a plain number).
 enum Monetary {
     static func parse(_ value: FieldValue) -> (currency: String?, amount: Decimal?) {
         switch value {
@@ -286,15 +286,15 @@ enum Monetary {
     }
 }
 
-/// Änderungen an einem Dokument. Leere Werte werden bewusst als `null` gesendet, damit sich
-/// Korrespondent und Typ auch entfernen lassen.
+/// Changes to a document. Empty values are deliberately sent as `null` so that
+/// correspondent and type can be removed too.
 struct DocumentUpdate: Encodable, Equatable {
     var title: String
     var created: Date
     var correspondent: Int?
     var documentType: Int?
     var tags: [Int]
-    /// `nil`, solange die Felder des Dokuments nicht bekannt sind: dann nichts daran ändern.
+    /// `nil` as long as the document's fields aren't known: then don't change them.
     var customFields: [CustomFieldInstance]?
     private let originalCustomFields: [CustomFieldInstance]?
 
@@ -314,7 +314,7 @@ struct DocumentUpdate: Encodable, Equatable {
         case customFields = "custom_fields"
     }
 
-    /// Vergleicht nur die bearbeitbaren Werte, nicht den Ausgangszustand.
+    /// Compares only the editable values, not the original state.
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.title == rhs.title && lhs.created == rhs.created && lhs.correspondent == rhs.correspondent
             && lhs.documentType == rhs.documentType && lhs.tags == rhs.tags && lhs.customFields == rhs.customFields
@@ -327,14 +327,14 @@ struct DocumentUpdate: Encodable, Equatable {
         try c.encode(correspondent, forKey: .correspondent)
         try c.encode(documentType, forKey: .documentType)
         try c.encode(tags, forKey: .tags)
-        // Paperless ersetzt die komplette Liste; nur senden, wenn sich etwas geändert hat.
+        // Paperless replaces the whole list; only send it if something changed.
         if let customFields, originalCustomFields != nil, customFields != originalCustomFields {
             try c.encode(customFields, forKey: .customFields)
         }
     }
 }
 
-/// Status eines Paperless-Hintergrundjobs (API-Version 9).
+/// Status of a Paperless background task (API version 9).
 struct TaskStatus: Decodable {
     enum State: String {
         case pending = "PENDING", started = "STARTED", success = "SUCCESS", failure = "FAILURE", revoked = "REVOKED"
@@ -363,7 +363,7 @@ struct TaskStatus: Decodable {
         taskID = try c.decode(String.self, forKey: .taskID)
         status = try c.decode(String.self, forKey: .status)
         result = try? c.decode(String.self, forKey: .result)
-        // Je nach Version eine Zahl oder ein String.
+        // A number or a string, depending on the version.
         if let int = try? c.decode(Int.self, forKey: .relatedDocument) {
             relatedDocument = int
         } else if let string = try? c.decode(String.self, forKey: .relatedDocument) {
@@ -377,7 +377,7 @@ struct TaskStatus: Decodable {
     var isFinished: Bool { [.success, .failure, .revoked].contains(state) }
 }
 
-// MARK: - Suche
+// MARK: - Search
 
 enum SearchToken: Hashable, Identifiable, Codable {
     case inbox
@@ -396,7 +396,7 @@ enum DocumentSort: String, CaseIterable, Identifiable {
     var ordering: String { "-" + rawValue }
 }
 
-/// Alles, was die Dokumentliste bestimmt. Rein und ohne Netzwerk, damit es sich testen lässt.
+/// Everything that determines the document list. Pure and without networking, so it can be tested.
 struct DocumentQuery: Equatable {
     var text: String = ""
     var tokens: [SearchToken] = []
@@ -414,7 +414,7 @@ struct DocumentQuery: Equatable {
         if trimmedText.isEmpty {
             items.append(.init(name: "ordering", value: sort.ordering))
         } else {
-            // Volltextsuche über den Index von Paperless, sortiert nach Relevanz.
+            // Full-text search over Paperless' index, sorted by relevance.
             items.append(.init(name: "query", value: trimmedText))
         }
         var tagIDs: [Int] = []
@@ -440,7 +440,7 @@ struct DocumentQuery: Equatable {
         return items
     }
 
-    /// Filtert lokal gespeicherte Dokumente, wenn der Server nicht erreichbar ist.
+    /// Filters locally stored documents when the server is unreachable.
     func matches(_ doc: Document, inboxTags: Set<Int>) -> Bool {
         var correspondentIDs: [Int] = []
         var typeIDs: [Int] = []
@@ -461,8 +461,8 @@ struct DocumentQuery: Equatable {
     }
 }
 
-/// Wandelt Eingaben wie `#Steuer`, `@Obi` oder `typ:Rechnung` in Such-Tokens um.
-/// Namen mit Leerzeichen gehen in Anführungszeichen: `#"Haus und Garten"`.
+/// Turns input like `#Steuer`, `@Obi` or `typ:Rechnung` into search tokens.
+/// Names with spaces go in quotes: `#"Haus und Garten"`.
 struct SearchParser {
     let tags: [NamedItem]
     let correspondents: [NamedItem]
@@ -472,7 +472,7 @@ struct SearchParser {
 
     enum Kind { case tag, correspondent, type }
 
-    /// Erkennt ein Präfix am Anfang eines Worts.
+    /// Detects a prefix at the start of a word.
     static func kind(of word: Substring) -> (Kind, Substring)? {
         if word.hasPrefix("#") { return (.tag, word.dropFirst()) }
         if word.hasPrefix("@") { return (.correspondent, word.dropFirst()) }
@@ -496,7 +496,7 @@ struct SearchParser {
         }
     }
 
-    /// Exakter Treffer (ohne Groß-/Kleinschreibung), sonst ein eindeutiger Präfix-Treffer.
+    /// Exact match (case-insensitive), otherwise a unique prefix match.
     func resolve(_ name: String, kind: Kind) -> NamedItem? {
         let candidates = items(for: kind)
         if let exact = candidates.first(where: { $0.name.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) {
@@ -506,8 +506,8 @@ struct SearchParser {
         return prefixed.count == 1 ? prefixed[0] : nil
     }
 
-    /// Nur abgeschlossene Tokens (gefolgt von Leerzeichen oder `final`) werden umgewandelt,
-    /// damit beim Tippen nichts vorschnell verschwindet.
+    /// Only completed tokens (followed by a space or `final`) are converted,
+    /// so nothing disappears prematurely while typing.
     func parse(_ text: String, final: Bool) -> (text: String, tokens: [SearchToken]) {
         var tokens: [SearchToken] = []
         var rest: [String] = []
@@ -517,7 +517,7 @@ struct SearchParser {
                 index = text.index(after: index)
                 continue
             }
-            // Ein Wort, ggf. mit Anführungszeichen nach dem Präfix.
+            // One word, possibly with quotes after the prefix.
             var end = index
             var inQuotes = false
             while end < text.endIndex {
@@ -541,12 +541,12 @@ struct SearchParser {
             index = end
         }
         var remaining = rest.joined(separator: " ")
-        // Ein Leerzeichen am Ende erhalten, damit man nach einem Wort weitertippen kann.
+        // Keep a trailing space so you can keep typing after a word.
         if !final, text.last?.isWhitespace == true, !remaining.isEmpty { remaining += " " }
         return (remaining, tokens)
     }
 
-    /// Vorschläge für ein gerade getipptes Präfix-Wort am Ende des Textes.
+    /// Suggestions for a prefix word currently being typed at the end of the text.
     func suggestions(for text: String, limit: Int = 8) -> [SearchToken] {
         guard let last = text.split(separator: " ", omittingEmptySubsequences: false).last,
               let (kind, rawName) = Self.kind(of: last) else { return [] }
@@ -557,7 +557,7 @@ struct SearchParser {
         return matches.prefix(limit).map { token(kind, id: $0.id) }
     }
 
-    /// Entfernt das angefangene Präfix-Wort am Ende, nachdem ein Vorschlag übernommen wurde.
+    /// Removes the started prefix word at the end after a suggestion was accepted.
     static func removingTrailingPrefixWord(_ text: String) -> String {
         var parts = text.split(separator: " ", omittingEmptySubsequences: false)
         if let last = parts.last, kind(of: last) != nil { parts.removeLast() }
@@ -565,7 +565,7 @@ struct SearchParser {
     }
 }
 
-/// Wandelt die Treffer-Markierung von Paperless (`<span class="match">…</span>`) in Abschnitte um.
+/// Turns Paperless' match highlighting (`<span class="match">…</span>`) into segments.
 enum HighlightParser {
     struct Segment: Equatable {
         let text: String

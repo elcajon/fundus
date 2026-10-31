@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Liquid Glass ab macOS 26, davor die bisherigen Materialien. So bleibt macOS 15 als Mindestversion.
+/// Liquid Glass from macOS 26, the previous materials before that. That keeps macOS 15 as the minimum.
 extension View {
     @ViewBuilder func glassCapsule() -> some View {
         if #available(macOS 26, *) {
@@ -26,7 +26,7 @@ extension View {
         }
     }
 
-    /// Inhalt, der unter der Toolbar durchscrollt, weich ausblenden.
+    /// Softly fade out content that scrolls under the toolbar.
     @ViewBuilder func softTopScrollEdge() -> some View {
         if #available(macOS 26, *) {
             scrollEdgeEffectStyle(.soft, for: .top)

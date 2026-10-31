@@ -1,18 +1,18 @@
 #!/bin/zsh
-# Baut Fundus.app ohne Xcode, nur mit den Command Line Tools.
+# Builds Fundus.app without Xcode, with just the Command Line Tools.
 set -euo pipefail
 cd "${0:A:h}"
 
-# Gebraucht wird ein macOS-26-SDK: Im 27er ist @State ein Macro, dessen Plugin nur mit Xcode
-# ausgeliefert wird; ältere SDKs kennen die Liquid-Glass-APIs nicht. Passt das ausgewählte SDK
-# nicht, auf ein 26er aus den Command Line Tools ausweichen.
+# Needs a macOS 26 SDK: in the 27 SDK @State is a macro whose plugin ships only with Xcode;
+# older SDKs don't know the Liquid Glass APIs. If the selected SDK doesn't fit, fall back
+# to a 26 SDK from the Command Line Tools.
 sdk_major=$(xcrun --sdk macosx --show-sdk-version 2>/dev/null | cut -d. -f1)
 if [[ "${sdk_major:-0}" != 26 ]]; then
   sdk=$(ls -d /Library/Developer/CommandLineTools/SDKs/MacOSX26*.sdk 2>/dev/null | sort -V | tail -1)
   [[ -n "$sdk" ]] && export SDKROOT="$sdk"
 fi
 
-# Übersetzungen prüfen: bricht ab, wenn ein neuer Text keine englische Fassung hat.
+# Check translations: fails if a new string has no English version.
 python3 scripts/make-strings.py
 
 swift build -c release
@@ -23,8 +23,8 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin" "$app/Contents/MacOS/Fundus"
 
-# SwiftPM trägt als SDK-Version die Mindestversion (15.0) ein. macOS entscheidet daran, ob die App
-# das aktuelle Design (Liquid Glass) bekommt, deshalb die echte SDK-Version nachtragen.
+# SwiftPM writes the minimum version (15.0) as the SDK version. macOS uses it to decide whether
+# the app gets the current design (Liquid Glass), so fill in the real SDK version.
 sdk_version=$(xcrun --sdk "${SDKROOT:-macosx}" --show-sdk-version)
 vtool -set-build-version macos 15.0 "$sdk_version" -replace \
   -output "$app/Contents/MacOS/Fundus" "$app/Contents/MacOS/Fundus"
@@ -37,7 +37,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
 <dict>
   <key>CFBundleName</key><string>Fundus</string>
   <key>CFBundleDisplayName</key><string>Fundus</string>
-  <!-- Die Kennung bleibt: daran hängen Schlüsselbund-Freigabe, Einstellungen und Anmeldeobjekt. -->
+  <!-- The identifier stays: keychain access, settings and the login item depend on it. -->
   <key>CFBundleIdentifier</key><string>de.max-venz.ablage</string>
   <key>CFBundleExecutable</key><string>Fundus</string>
   <key>CFBundlePackageType</key><string>APPL</string>
@@ -63,7 +63,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Anmeldeobjekt: startet Fundus beim Anmelden still (ohne Fenster).
+# Login item: starts Fundus silently at login (without a window).
 launcher="$app/Contents/Library/LoginItems/FundusLauncher.app"
 mkdir -p "$launcher/Contents/MacOS"
 swiftc -O -sdk "${SDKROOT:-$(xcrun --show-sdk-path)}" -target "$(uname -m)-apple-macos15.0" \
@@ -88,7 +88,7 @@ cat > "$launcher/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Icons (hell und dunkel) und das Menüleisten-Symbol frisch rendern.
+# Render the icons (light and dark) and the menu bar icon fresh.
 icons=.build/icons
 rm -rf "$icons" && mkdir -p "$icons"
 swift scripts/make-icon.swift "$icons"
@@ -97,15 +97,15 @@ iconutil -c icns "$icons/AppIconDark.iconset" -o "$app/Contents/Resources/AppIco
 cp "$icons/MenuBarIcon.png" "$icons/MenuBarIcon@2x.png" "$app/Contents/Resources/"
 cp -R Resources/*.lproj "$app/Contents/Resources/"
 
-# Signieren mit einer eigenen, stabilen Identität. Bei einer Ad-hoc-Signatur ändert sich der
-# Code-Hash mit jedem Build, und der Schlüsselbund fragt dann jedes Mal neu nach dem Passwort.
-# Zertifikat und Schlüssel liegen in einem eigenen Schlüsselbund unter .signing/, der
-# Login-Schlüsselbund bleibt unberührt.
+# Sign with our own, stable identity. With an ad-hoc signature the code hash changes
+# with every build, and the keychain then asks for the password again each time.
+# Certificate and key live in a separate keychain under .signing/; the login
+# keychain is left alone.
 signing="$PWD/.signing"
 kc="$signing/ablage.keychain-db"
-# Name der lokalen Identität: bleibt, damit vorhandene Schlüsselbund-Freigaben weiter gelten.
+# Name of the local identity: stays the same so existing keychain access grants keep working.
 identity="${SIGN_IDENTITY:-Ablage Local Signing}"
-# Auf einem CI-Runner gibt es keinen Schlüsselbund und keine dauerhafte Identität: ad hoc signieren.
+# A CI runner has no keychain and no persistent identity: sign ad hoc.
 if [[ "$identity" == "-" ]]; then
   codesign --force --options runtime --sign - "$launcher"
   codesign --force --options runtime --sign - "$app"
@@ -132,11 +132,11 @@ extendedKeyUsage = critical,codeSigning
 CNF
   openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -config "$tmp/cert.cnf" \
     -keyout "$tmp/key.pem" -out "$tmp/cert.pem" 2>/dev/null
-  # security kann das moderne PKCS12-Format von OpenSSL 3 nicht lesen, daher die Legacy-Algorithmen.
+  # security can't read OpenSSL 3's modern PKCS12 format, hence the legacy algorithms.
   openssl pkcs12 -export -inkey "$tmp/key.pem" -in "$tmp/cert.pem" -name "$identity" \
     -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 \
     -out "$tmp/id.p12" -passout "pass:$pw"
-  # create-keychain kann den neuen Schlüsselbund in die Suchliste hängen; die bleibt unverändert.
+  # create-keychain may add the new keychain to the search list; keep that list unchanged.
   saved=("${(@f)$(security list-keychains -d user | tr -d '" ')}")
   security create-keychain -p "$pw" "$kc"
   security list-keychains -d user -s "${saved[@]}"
@@ -147,9 +147,9 @@ CNF
   rm -rf "$tmp"
 fi
 security unlock-keychain -p "$(<"$signing/password")" "$kc"
-# Hardened Runtime: kein nachgeladener fremder Code, keine Debugger-Anbindung von außen.
-# Ein selbst ausgestelltes Zertifikat gilt unter neueren macOS-Versionen als nicht vertrauenswürdig
-# (CSSMERR_TP_NOT_TRUSTED), und codesign findet es dann nicht mehr. In dem Fall ad hoc signieren.
+# Hardened runtime: no injected foreign code, no debugger attaching from outside.
+# Newer macOS versions treat a self-signed certificate as untrusted (CSSMERR_TP_NOT_TRUSTED),
+# and codesign can no longer find it then. In that case sign ad hoc.
 if codesign --force --options runtime --keychain "$kc" --sign "$identity" "$launcher" 2>/dev/null; then
   codesign --force --options runtime --keychain "$kc" --sign "$identity" "$app"
   echo "Fertig: $PWD/$app"
