@@ -113,7 +113,32 @@ private final class FitPDFView: PDFView {
         let available = CGSize(width: self.bounds.width - 60, height: self.bounds.height - 48)
         guard pageSize.width > 0, pageSize.height > 0, available.width > 0, available.height > 0 else { return }
         let scale = min(available.width / pageSize.width, available.height / pageSize.height)
-        if abs(scaleFactor - scale) > 0.001 { scaleFactor = scale }
+        guard abs(scaleFactor - scale) > 0.001 else { return }
+        // PDFView zoomt um die Mitte des sichtbaren Bereichs. Beim ersten Einpassen rutschte dadurch
+        // der Anfang des Dokuments ein Stück nach oben aus dem Bild. Stattdessen am Anfang bleiben,
+        // sonst die obere linke Ecke festhalten (z. B. beim Ändern der Fenstergröße).
+        let anchor = currentDestination
+        let atStart = isAtStart(anchor)
+        scaleFactor = scale
+        if atStart {
+            scrollToTop()
+        } else if let anchor {
+            go(to: anchor)
+        }
+    }
+
+    private func scrollToTop() {
+        guard let docView = documentView, let scroll = docView.enclosingScrollView else { return }
+        let clip = scroll.contentView
+        let top = docView.isFlipped ? -scroll.contentInsets.top : docView.frame.height - clip.bounds.height + scroll.contentInsets.top
+        clip.scroll(to: NSPoint(x: clip.bounds.minX, y: top))
+        scroll.reflectScrolledClipView(clip)
+    }
+
+    /// Noch nicht gescrollt: Oben ist der Rand über der ersten Seite zu sehen.
+    private func isAtStart(_ destination: PDFDestination?) -> Bool {
+        guard let destination, let page = destination.page, let document, document.index(for: page) == 0 else { return false }
+        return destination.point.y >= page.bounds(for: displayBox).maxY - 0.5
     }
 }
 
