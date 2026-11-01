@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Sammelt übersetzbare Texte aus den Swift-Quellen und gibt die Schlüssel so aus,
-wie SwiftUI/Foundation sie nachschlagen (Interpolationen als %@ bzw. %lld)."""
+"""Collects translatable strings from the Swift sources and prints the keys the way
+SwiftUI/Foundation look them up (interpolations as %@ or %lld)."""
 import re, sys, pathlib
 
 CONTEXTS = r'(?:Text|Button|Label|Toggle|Section|Picker|TextField|SecureField|Menu|LabeledContent|' \
@@ -32,7 +32,7 @@ def to_key(literal):
 
 keys = {}
 pattern = re.compile(CONTEXTS + r'"((?:[^"\\]|\\.)*)"')
-for path in sorted(pathlib.Path('Sources/Ablage').glob('*.swift')):
+for path in sorted(pathlib.Path('Sources/Fundus').glob('*.swift')):
     for m in pattern.finditer(path.read_text()):
         lit = m.group(1)
         if not lit.strip() or not re.search(r'[A-Za-zÄÖÜäöü]', lit): continue

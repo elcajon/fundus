@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-/// Der Paperless-API-Token liegt ausschließlich im Schlüsselbund, nie in den UserDefaults.
+/// The Paperless API token is kept only in the keychain, never in UserDefaults.
 enum Keychain {
     private static let service = "de.max-venz.ablage.paperless-token"
 

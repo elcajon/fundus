@@ -1,11 +1,11 @@
 import SwiftUI
 import WebKit
 
-/// Überträgt Cookies zwischen dem Login-WebView und der URLSession der App.
+/// Transfers cookies between the login web view and the app's URLSession.
 ///
-/// Der WebView nutzt den persistenten `WKWebsiteDataStore.default()`, deshalb überlebt die
-/// Pangolin-Session einen Neustart der App. Beim Start wird sie von dort in
-/// `HTTPCookieStorage.shared` zurückkopiert.
+/// The web view uses the persistent `WKWebsiteDataStore.default()`, so the Pangolin
+/// session survives a restart of the app. At launch it is copied back from there into
+/// `HTTPCookieStorage.shared`.
 @MainActor
 enum CookieBridge {
     static func matches(_ cookie: HTTPCookie, host: String) -> Bool {
@@ -27,12 +27,12 @@ enum CookieBridge {
     }
 }
 
-/// Hält den WebView, damit die Sheet-Buttons darin navigieren können.
+/// Holds the web view so the sheet's buttons can navigate in it.
 @MainActor
 final class WebViewHandle {
     weak var webView: WKWebView?
 
-    /// Klickt auf der Pocket-ID-Seite den Link zu den Alternativen (QR-Code / Logincode).
+    /// Clicks the link to the alternatives (QR code / login code) on the Pocket ID page.
     func openAlternativeLogin() {
         let js = """
         const a = [...document.querySelectorAll('a,button')].find(x => /Alternative|another device|other/i.test(x.innerText));
@@ -123,7 +123,7 @@ private struct LoginWebView: NSViewRepresentable {
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
         view.uiDelegate = context.coordinator
-        // Mit einem Safari-ähnlichen UA liefern Pangolin und Pocket-ID ihre normale Login-Seite.
+        // With a Safari-like user agent, Pangolin and Pocket ID serve their normal login page.
         view.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/19.0 Safari/605.1.15"
         handle.webView = view
         view.load(URLRequest(url: startURL))
@@ -146,7 +146,7 @@ private struct LoginWebView: NSViewRepresentable {
             parent.currentURL = webView.url
         }
 
-        // OIDC-Provider, die ein Popup öffnen wollen, im selben WebView laden.
+        // Load OIDC providers that want to open a popup in the same web view.
         func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                      for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
             if navigationAction.targetFrame == nil { webView.load(navigationAction.request) }

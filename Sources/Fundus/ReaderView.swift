@@ -1,7 +1,7 @@
 import PDFKit
 import SwiftUI
 
-/// Lesemodus im Hauptfenster: das Dokument in voller Größe, Titel und Datum in der Leiste.
+/// Reading mode in the main window: the document at full size, title and date in the toolbar.
 struct ReaderView: View {
     @Environment(AppModel.self) private var model
     let documentID: Int
@@ -30,7 +30,7 @@ struct ReaderView: View {
                     Button("Zurück") { model.readerID = nil }
                 }
             } else if let placeholder {
-                // Das Vorschaubild steht schon da, bis das PDF geladen ist.
+                // The thumbnail is already shown until the PDF has loaded.
                 Image(nsImage: placeholder)
                     .resizable()
                     .scaledToFit()
@@ -48,7 +48,7 @@ struct ReaderView: View {
     private func load() async {
         placeholder = await model.thumbnails.image(for: documentID, client: model.client)
         let store = model.store
-        // Schon einmal geöffnet: sofort aus der lokalen Kopie zeigen.
+        // Opened before: show it right away from the local copy.
         if let cached = store?.preview(documentID), show(cached) {
             return
         }
@@ -86,7 +86,7 @@ struct ReaderView: View {
     }
 }
 
-/// Passt die Seite ganz ins Fenster ein, bis der Nutzer selbst zoomt.
+/// Fits the page completely into the window until the user zooms themselves.
 private final class FitPDFView: PDFView {
     private var userZoomed = false
 
@@ -113,7 +113,32 @@ private final class FitPDFView: PDFView {
         let available = CGSize(width: self.bounds.width - 60, height: self.bounds.height - 48)
         guard pageSize.width > 0, pageSize.height > 0, available.width > 0, available.height > 0 else { return }
         let scale = min(available.width / pageSize.width, available.height / pageSize.height)
-        if abs(scaleFactor - scale) > 0.001 { scaleFactor = scale }
+        guard abs(scaleFactor - scale) > 0.001 else { return }
+        // PDFView zooms around the center of the visible area. On the first fit that pushed the
+        // start of the document a bit up out of view. Instead stay at the start, otherwise keep
+        // the top left corner in place (e.g. when the window is resized).
+        let anchor = currentDestination
+        let atStart = isAtStart(anchor)
+        scaleFactor = scale
+        if atStart {
+            scrollToTop()
+        } else if let anchor {
+            go(to: anchor)
+        }
+    }
+
+    private func scrollToTop() {
+        guard let docView = documentView, let scroll = docView.enclosingScrollView else { return }
+        let clip = scroll.contentView
+        let top = docView.isFlipped ? -scroll.contentInsets.top : docView.frame.height - clip.bounds.height + scroll.contentInsets.top
+        clip.scroll(to: NSPoint(x: clip.bounds.minX, y: top))
+        scroll.reflectScrolledClipView(clip)
+    }
+
+    /// Not scrolled yet: the margin above the first page is visible at the top.
+    private func isAtStart(_ destination: PDFDestination?) -> Bool {
+        guard let destination, let page = destination.page, let document, document.index(for: page) == 0 else { return false }
+        return destination.point.y >= page.bounds(for: displayBox).maxY - 0.5
     }
 }
 

@@ -114,7 +114,7 @@ The bundle identifier stays `de.max-venz.ablage` for compatibility, and both `ab
 
 ## How this was made
 
-Fundus was **vibe coded**: an AI agent (Claude Code) wrote essentially all of it from prompts, while I steered, tried each build against my own Paperless instance and decided what ships. There was no line-by-line human review of every change, and the code comments are in German because that is the language it was written in.
+Fundus was **vibe coded**: an AI agent (Claude Code) wrote essentially all of it from prompts, while I steered, tried each build against my own Paperless instance and decided what ships. There was no line-by-line human review of every change.
 
 It has been in daily use on one Mac, its tests pass, and the risky parts were checked by hand — but treat it the way you would treat any small unaudited tool: read the code before you point it at an archive that matters, keep backups, and expect a rough edge here and there. Issues and pull requests are welcome.
 

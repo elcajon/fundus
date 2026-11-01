@@ -1,6 +1,6 @@
 import os
 
-/// Protokoll über das einheitliche macOS-Log. Mitlesen mit:
+/// Logging via the macOS unified log. Follow it with:
 /// `log stream --predicate 'subsystem == "de.max-venz.ablage"' --level debug`
 enum Log {
     static let app = Logger(subsystem: "de.max-venz.ablage", category: "app")

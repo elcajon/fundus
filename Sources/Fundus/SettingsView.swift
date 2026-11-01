@@ -13,6 +13,38 @@ struct SettingsView: View {
                 .tabItem { Label("Verbindung", systemImage: "network") }
         }
         .frame(width: 540)
+        .toggleStyle(SettingsSwitchStyle())
+    }
+}
+
+/// Switch row with a fixed switch size.
+///
+/// The standard switch reports its regular size (54 × 24) on the first layout passes and only
+/// after later updates, such as a mouse hover, its real mini size (36 × 16). The form and the
+/// window then shrank a bit with every hover. With a fixed frame and no baseline alignment
+/// (the switch reports its baseline wrongly too), the row has the same height from the start.
+private struct SettingsSwitchStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        SettingsSwitchRow(configuration: configuration)
+    }
+}
+
+private struct SettingsSwitchRow: View {
+    let configuration: ToggleStyleConfiguration
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        HStack {
+            configuration.label
+                .foregroundStyle(isEnabled ? .primary : .tertiary)
+                .accessibilityHidden(true)
+            Spacer(minLength: 8)
+            Toggle(isOn: configuration.$isOn) { configuration.label }
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .controlSize(.mini)
+                .frame(width: 36, height: 16)
+        }
     }
 }
 

@@ -22,8 +22,8 @@ jobs:
           xcodebuild -version
           swift --version
 
-      # Der Build erzeugt sonst eine eigene Signatur-Identität im Schlüsselbund;
-      # auf dem Runner genügt eine Ad-hoc-Signatur.
+      # Otherwise the build creates its own signing identity in the keychain;
+      # on the runner an ad-hoc signature is enough.
       - name: Test
         run: ./test.sh
 

@@ -69,7 +69,7 @@ struct LibraryView: View {
         }
         .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow]) { press in
             if model.readerID != nil {
-                // Im Lesemodus scrollt ↑/↓ die Seiten, ←/→ blättert durch die Dokumente.
+                // In reading mode ↑/↓ scrolls the pages, ←/→ pages through the documents.
                 guard press.key == .leftArrow || press.key == .rightArrow else { return .ignored }
                 model.step(press.key == .leftArrow ? -1 : 1)
                 return .handled
@@ -83,7 +83,7 @@ struct LibraryView: View {
             return .handled
         }
         .task(id: model.query) {
-            // Tipp-Pausen abwarten, damit nicht jede Taste eine Volltextsuche auslöst.
+            // Wait for pauses in typing so not every key press triggers a full-text search.
             try? await Task.sleep(for: .milliseconds(model.search.isEmpty ? 0 : 280))
             guard !Task.isCancelled else { return }
             switch model.phase {
@@ -259,7 +259,7 @@ struct ImportStatusButton: View {
     }
 }
 
-// MARK: - Raster
+// MARK: - Grid
 
 struct DocumentGrid: View {
     @Environment(AppModel.self) private var model
@@ -271,18 +271,21 @@ struct DocumentGrid: View {
         GeometryReader { geo in
             let spacing = 42 * min(model.zoom, 1.2)
             let target = 290 * model.zoom
+            // Only the column count comes from outside. The scroll view sizes the columns itself
+            // (flexible columns): with legacy scroll bars its visible area is 17 pt narrower while the
+            // bar is shown. A width fixed from outside fit only one of the two states, and the scroll
+            // view then showed and hid the bar every few milliseconds.
             let usable = geo.size.width - padding * 2
             let count = max(1, Int((usable + spacing) / (target + spacing)))
-            let cell = (usable - spacing * CGFloat(count - 1)) / CGFloat(count)
 
             ScrollViewReader { proxy in
                 ScrollView {
                     Color.clear.frame(height: 0).id("top")
-                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(cell), spacing: spacing, alignment: .topLeading),
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: spacing, alignment: .topLeading),
                                              count: count),
                               alignment: .leading, spacing: 46) {
                         ForEach(model.documents) { doc in
-                            DocumentTile(document: doc, width: cell)
+                            DocumentTile(document: doc)
                                 .id(doc.id)
                                 .onAppear {
                                     if doc.id == model.documents.last?.id {
@@ -302,7 +305,7 @@ struct DocumentGrid: View {
                 .scrollContentBackground(.hidden)
                 .softTopScrollEdge()
                 .background {
-                    // Klick ins Leere hebt die Auswahl auf.
+                    // A click into empty space clears the selection.
                     Color.clear.contentShape(Rectangle()).onTapGesture { model.select(nil) }
                 }
                 .overlay { EmptyState() }
@@ -351,15 +354,21 @@ struct DocumentTile: View {
     @AppStorage("showTags") private var showTags = true
 
     let document: Document
-    let width: CGFloat
 
     private var isSelected: Bool { model.selectedIDs.contains(document.id) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PageStack(document: document, box: CGSize(width: width, height: width * 1.9), isSelected: isSelected)
+            // The cell has the column's width and a fixed aspect ratio; the page sits inside it.
+            Color.clear
+                .aspectRatio(1 / 1.9, contentMode: .fit)
+                .overlay {
+                    GeometryReader { geo in
+                        PageStack(document: document, box: geo.size, isSelected: isSelected)
+                    }
+                }
                 .onTapGesture {
-                    // Doppelklick über den Klickzähler erkennen, damit die Auswahl ohne Verzögerung reagiert.
+                    // Detect double clicks via the click count so the selection reacts without delay.
                     let event = NSApp.currentEvent
                     if (event?.clickCount ?? 1) >= 2 {
                         model.openReader(document.id)
@@ -393,7 +402,7 @@ struct DocumentTile: View {
                 .padding(.top, 12)
             }
         }
-        .frame(width: width, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
@@ -475,8 +484,8 @@ struct DocumentTile: View {
     }
 }
 
-/// Die Seite in ihrem echten Seitenverhältnis, unten links in ihrer Zelle ausgerichtet.
-/// Mehrseitige Dokumente bekommen angedeutete Blätter dahinter.
+/// The page at its real aspect ratio, aligned to the bottom left of its cell.
+/// Multi-page documents get hinted sheets behind it.
 struct PageStack: View {
     @Environment(AppModel.self) private var model
     let document: Document
@@ -562,7 +571,7 @@ struct Pill: View {
     }
 }
 
-/// Einfacher Zeilenumbruch-Layout für die Pills.
+/// Simple line-wrapping layout for the pills.
 struct FlowLayout: Layout {
     var spacing: CGFloat = 6
 
@@ -600,7 +609,7 @@ struct FlowLayout: Layout {
     }
 }
 
-// MARK: - Meldungen
+// MARK: - Messages
 
 struct ToastView: View {
     @Environment(AppModel.self) private var model

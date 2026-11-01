@@ -19,7 +19,7 @@
     <circle cx="990" cy="64" r="5.5" stroke="#86868b" stroke-width="1.6" fill="none"/><path d="M994 68l4 4" stroke="#86868b" stroke-width="1.6" stroke-linecap="round"/>
     <text x="1004" y="69" font-size="12.5" fill="#86868b">Search, #tag, @sender, typ:type</text>
 
-    <!-- Dokumentansicht links -->
+    <!-- Document view on the left -->
     <g filter="url(#cs2)"><rect x="180" y="128" width="460" height="600" rx="4" fill="#fff"/></g>
     <g transform="translate(180,128)">
       <rect x="40" y="44" width="150" height="14" rx="4" fill="#1d4ed8"/>
@@ -44,7 +44,7 @@
       </g>
     </g>
 
-    <!-- Informationsspalte -->
+    <!-- Info column -->
     <rect x="920" y="94" width="320" height="676" fill="#f2f1ef"/>
     <line x1="920" y1="94" x2="920" y2="770" stroke="#e0dedb"/>
     <g font-size="12.5" fill="#1d1d1f">

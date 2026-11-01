@@ -1,11 +1,11 @@
 import AppKit
 import UserNotifications
 
-/// Fragt Paperless regelmäßig nach neuen Dokumenten und meldet sie als macOS-Mitteilung.
+/// Polls Paperless for new documents at regular intervals and reports them as macOS notifications.
 ///
-/// Neu heißt: eine höhere ID als die höchste bisher gesehene. Der Stand liegt pro Server in den
-/// UserDefaults, damit nach einem Neustart nur wirklich Neues gemeldet wird. Beim allerersten Lauf
-/// wird nur die Ausgangslage gemerkt, sonst käme eine Mitteilung für jedes vorhandene Dokument.
+/// New means: a higher ID than the highest one seen so far. The state is kept per server in
+/// UserDefaults so that after a restart only really new documents are reported. On the very first
+/// run only the starting point is recorded, otherwise there'd be a notification for every document.
 @MainActor
 final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
     nonisolated static let enabledKey = "notifyNewDocuments"
@@ -33,7 +33,13 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
     func start() {
         stop()
         guard isEnabled else { return }
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error {
+                Log.app.error("Mitteilungen: Berechtigung nicht angefragt: \(String(describing: error), privacy: .public)")
+            } else if !granted {
+                Log.app.notice("Mitteilungen sind in den Systemeinstellungen nicht erlaubt")
+            }
+        }
         task = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.check()
@@ -59,7 +65,7 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
         do {
             latest = try await client.latestDocuments()
         } catch ClientError.pangolinLoginRequired {
-            // Nicht weiter pollen: jede Runde wäre ein 401 für CrowdSec. Einmal Bescheid geben.
+            // Stop polling: every round would be a 401 for CrowdSec. Tell the user once.
             stop()
             post(id: "session", title: "Fundus",
                  body: String(localized: "Die Pangolin-Anmeldung ist abgelaufen. Öffne Fundus, um dich neu anzumelden."))
@@ -84,7 +90,7 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
         model.noteNewDocuments(fresh)
         Task { await model.syncLibrary() }
 
-        // Was Fundus selbst importiert hat, meldet schon der Import.
+        // Whatever Fundus imported itself is already reported by the import.
         let foreign = fresh.filter { !model.ownImports.contains($0.id) }
         guard !foreign.isEmpty else { return }
         if foreign.count > 3 {
@@ -103,7 +109,7 @@ final class NewDocumentWatcher: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// Mitteilungs-Anhänge brauchen eine Datei in einem Format, das macOS kennt, also PNG statt WebP.
+    /// Notification attachments need a file in a format macOS knows, so PNG instead of WebP.
     private func thumbnailFile(for doc: Document, client: PaperlessClient) async -> URL? {
         guard let model, let image = await model.thumbnails.image(for: doc.id, client: client),
               let tiff = image.tiffRepresentation,
