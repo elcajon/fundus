@@ -74,6 +74,8 @@ struct DocumentList: View {
                     model.openReader(id)
                 }
             }
+            // The window background, like the grid and the info column, instead of the table's own.
+            .scrollContentBackground(.hidden)
             .focused(focus, equals: .list)
             // The table moves the selection with the arrow keys itself; these keys do what they do in the grid.
             .onKeyPress(.space) { open() }
