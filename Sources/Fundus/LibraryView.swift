@@ -10,33 +10,37 @@ struct LibraryView: View {
 
     var body: some View {
         @Bindable var model = model
-        ZStack {
-            DocumentGrid(columns: $columns)
-                .opacity(model.readerID == nil ? 1 : 0)
-                .scaleEffect(model.readerID == nil ? 1 : 1.03)
+        HStack(spacing: 0) {
+            ZStack {
+                DocumentGrid(columns: $columns)
+                    .opacity(model.readerID == nil ? 1 : 0)
+                    .scaleEffect(model.readerID == nil ? 1 : 1.03)
 
-            if let id = model.readerID {
-                ReaderView(documentID: id)
-                    .id(id)
-                    .transition(.asymmetric(insertion: .scale(scale: 0.92).combined(with: .opacity),
-                                            removal: .scale(scale: 0.96).combined(with: .opacity)))
+                if let id = model.readerID {
+                    ReaderView(documentID: id)
+                        .id(id)
+                        .transition(.asymmetric(insertion: .scale(scale: 0.92).combined(with: .opacity),
+                                                removal: .scale(scale: 0.96).combined(with: .opacity)))
+                }
+
+                if dropTargeted {
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [7, 6]))
+                        .overlay(Text("Loslassen, um zu importieren").font(.headline))
+                        .padding(16)
+                        .allowsHitTesting(false)
+                }
             }
+            .animation(.spring(duration: 0.35, bounce: 0.12), value: model.readerID)
+            .overlay(alignment: .top) { OfflineBanner() }
+            .overlay(alignment: .bottom) { ToastView() }
 
-            if dropTargeted {
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [7, 6]))
-                    .overlay(Text("Loslassen, um zu importieren").font(.headline))
-                    .padding(16)
-                    .allowsHitTesting(false)
+            if model.showInspector {
+                InspectorColumn()
+                    .transition(.move(edge: .trailing))
             }
         }
-        .animation(.spring(duration: 0.35, bounce: 0.12), value: model.readerID)
-        .overlay(alignment: .top) { OfflineBanner() }
-        .overlay(alignment: .bottom) { ToastView() }
-        .inspector(isPresented: $model.showInspector) {
-            DocumentInspector()
-                .inspectorColumnWidth(min: 280, ideal: 320, max: 420)
-        }
+        .animation(.smooth(duration: 0.25), value: model.showInspector)
         .navigationTitle(title)
         .navigationSubtitle(subtitle)
         .toolbar { toolbar }

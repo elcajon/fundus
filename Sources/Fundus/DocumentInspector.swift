@@ -1,5 +1,41 @@
 import SwiftUI
 
+/// The info column to the right of the grid. It is part of the window content, so it starts below the
+/// toolbar. With `.inspector`, macOS 26 drew the column full height, behind the toolbar and the search field.
+struct InspectorColumn: View {
+    @AppStorage("inspectorWidth") private var width = 320.0
+    @State private var widthAtDragStart: Double?
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Divider()
+                .overlay {
+                    // A grab area wider than the line, to resize the column like the system inspector.
+                    Color.clear
+                        .frame(width: 8)
+                        .contentShape(Rectangle())
+                        .pointerStyle(.columnResize)
+                        .gesture(resize)
+                }
+            DocumentInspector()
+                .frame(width: width)
+                // Same surface as the grid, so the toolbar sits on one continuous background and the
+                // form scrolls under it with the system's scroll edge effect, like the grid does.
+                .scrollContentBackground(.hidden)
+        }
+    }
+
+    private var resize: some Gesture {
+        DragGesture(minimumDistance: 1, coordinateSpace: .global)
+            .onChanged { value in
+                let start = widthAtDragStart ?? width
+                widthAtDragStart = start
+                width = min(max(start - value.translation.width, 280), 420)
+            }
+            .onEnded { _ in widthAtDragStart = nil }
+    }
+}
+
 /// View and edit the metadata of the focused document. In the inbox with “Done”.
 struct DocumentInspector: View {
     @Environment(AppModel.self) private var model
