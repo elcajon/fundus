@@ -22,7 +22,11 @@
 "Abbrechen" = "Cancel";
 "Abgeschlossene entfernen" = "Clear finished";
 "Abmelden" = "Sign Out";
+"Absteigend" = "Descending";
 "Allgemein" = "General";
+"Als Galerie" = "as Gallery";
+"Als Galerie oder Liste anzeigen (⌘1, ⌘2)" = "Show as gallery or list (⌘1, ⌘2)";
+"Als Liste" = "as List";
 "Als erledigt markieren" = "Mark as Done";
 "Alternativen" = "Alternatives";
 "Angemeldet als" = "Signed in as";
@@ -32,6 +36,7 @@
 "Anmeldung erforderlich." = "Sign-in required.";
 "Anmeldung fehlgeschlagen: %@" = "Sign-in failed: %@";
 "Ansicht zurücksetzen" = "Reset View";
+"Aufsteigend" = "Ascending";
 "Aus Paperless unter Profil → API-Auth-Token. Wird für Importe und Änderungen gebraucht und im Schlüsselbund gespeichert." = "From Paperless under Profile → API Auth Token. Needed for imports and edits; stored in the keychain.";
 "Automatisch" = "Automatic";
 "Automatisch folgt der Einstellung von macOS." = "Automatic follows the macOS setting.";
@@ -42,6 +47,7 @@
 "Benutzername" = "User name";
 "Bibliothek" = "Library";
 "Dafür wird ein Paperless-API-Token benötigt (Einstellungen → Verbindung)." = "This needs a Paperless API token (Settings → Connection).";
+"Darstellung" = "View";
 "Das sieht nicht nach einer Server-Adresse aus." = "That doesn't look like a server address.";
 "Dateien aufs Fenster ziehen oder ⌘O." = "Drop files onto the window or press ⌘O.";
 "Datum" = "Date";
@@ -94,6 +100,9 @@
 "Fundus öffnen" = "Open Fundus";
 "Funktioniert, solange Fundus läuft." = "Works while Fundus is running.";
 "Für Paperless-Konten mit Passwort: Fundus holt sich damit einen API-Token und merkt sich nur diesen. Steht Paperless hinter einem SSO-Zugang wie Pangolin, öffnet sich stattdessen ein Anmeldefenster." = "For Paperless accounts with a password: Fundus uses it to fetch an API token and only keeps that. If Paperless sits behind an SSO gateway such as Pangolin, a sign-in window opens instead.";
+"Galerie" = "Gallery";
+"Gruppieren" = "Group";
+"Gruppieren nach" = "Group By";
 "Größere Dokumente" = "Larger Documents";
 "Hell" = "Light";
 "Hinzugefügt" = "Added";
@@ -107,6 +116,7 @@
 "In Spotlight" = "In Spotlight";
 "Informationen" = "Info";
 "Informationen (⌘I)" = "Info (⌘I)";
+"Jahr" = "Year";
 "Jetzt abgleichen" = "Sync Now";
 "Jetzt nach neuen Dokumenten sehen" = "Check for New Documents Now";
 "Jetzt noch bei Paperless anmelden." = "Now sign in to Paperless.";
@@ -126,15 +136,19 @@
 "Lesen" = "Read";
 "Letzter Abgleich" = "Last sync";
 "Link kopieren" = "Copy Link";
+"Liste" = "List";
+"Liste gruppieren" = "Group the list";
 "Lokale Kopie löschen" = "Delete Local Copy";
 "Loslassen, um zu importieren" = "Drop to import";
 "Melde dich an. Das Fenster schließt sich, sobald Paperless erreichbar ist." = "Sign in. This window closes as soon as Paperless is reachable.";
 "Minute" = "Minute";
 "Mit Menüleisten-Symbol läuft Fundus weiter: ⌘Q schließt nur die Fenster und blendet das Dock-Symbol aus, „Fundus beenden“ im Menüleisten-Menü beendet die App. Nur in der Menüleiste startet Fundus ohne Fenster und ohne Dock-Symbol, beim Anmelden immer. Die Schnellsuche öffnet sich mit ihrem Kurzbefehl aus jeder App und zeigt den Treffer in Fundus. Für den Start beim Anmelden sollte die App im Ordner „Programme“ liegen." = "With the menu bar icon, Fundus keeps running: ⌘Q only closes the windows and hides the Dock icon, “Quit Fundus” in the menu bar menu quits the app. In menu bar only mode, Fundus starts without a window or Dock icon; at login it always does. Quick Search opens from any app with its shortcut and shows the result in Fundus. To open at login, the app should be in the Applications folder.";
 "Mitteilungen" = "Notifications";
+"Monat" = "Month";
 "Nachsehen alle" = "Check every";
 "Neu" = "New";
 "Neues Dokument" = "New document";
+"Nicht gruppieren" = "None";
 "Noch kein Server eingerichtet." = "No server set up yet.";
 "Noch keine Dokumente" = "No documents yet";
 "Nur in der Menüleiste (kein Dock-Symbol)" = "Menu bar only (no Dock icon)";
@@ -142,6 +156,9 @@
 "Offline, und dieses Dokument wurde noch nicht geöffnet." = "Offline, and this document hasn't been opened before.";
 "Offline-Kopie" = "Offline copy";
 "Offline: lokale Kopie. %@" = "Offline: local copy. %@";
+"Ohne Datum" = "No date";
+"Ohne Dokumenttyp" = "No document type";
+"Ohne Korrespondent" = "No correspondent";
 "Pangolin verlangt eine Anmeldung." = "Pangolin requires you to sign in.";
 "Paperless" = "Paperless";
 "Paperless hat den Import abgelehnt." = "Paperless rejected the import.";
@@ -152,6 +169,8 @@
 "Passkeys aus dem Schlüsselbund gehen in diesem Fenster nicht, das erlaubt macOS nur signierten Browsern. Nimm \"Mit einem anderen Gerät anmelden\" (QR-Code mit dem iPhone scannen) oder einen Logincode." = "Keychain passkeys don't work in this window; macOS only allows that for signed browsers. Use \"Sign in with another device\" (scan the QR code with your iPhone) or a login code.";
 "Passwort" = "Password";
 "Programm" = "App";
+"Reihenfolge" = "Order";
+"Relevanz" = "Relevance";
 "Schnellsuche (%@)" = "Quick Search (%@)";
 "Schnellsuche aus jeder App" = "Quick Search from any app";
 "Server" = "Server";
