@@ -388,22 +388,130 @@ enum SearchToken: Hashable, Identifiable, Codable {
     var id: Self { self }
 }
 
-enum DocumentSort: String, CaseIterable, Identifiable {
-    case created
-    case added
+/// How the main window shows the documents.
+enum LibraryLayout: String, CaseIterable, Identifiable {
+    case grid
+    case list
 
     var id: Self { self }
-    var ordering: String { "-" + rawValue }
+}
+
+/// The fields Paperless can sort by. Tags can't be sorted: a document has several.
+enum SortField: String, CaseIterable, Identifiable, Codable {
+    case title
+    case created
+    case added
+    case correspondent
+    case documentType
+
+    var id: Self { self }
+
+    var ordering: String {
+        switch self {
+        case .title: "title"
+        case .created: "created"
+        case .added: "added"
+        case .correspondent: "correspondent__name"
+        case .documentType: "document_type__name"
+        }
+    }
+
+    /// Dates start with the newest, names with A.
+    var ascendingByDefault: Bool { self != .created && self != .added }
+}
+
+struct DocumentSort: Hashable, Codable {
+    var field: SortField
+    var ascending: Bool
+
+    init(_ field: SortField, ascending: Bool? = nil) {
+        self.field = field
+        self.ascending = ascending ?? field.ascendingByDefault
+    }
+
+    static let created = DocumentSort(.created)
+    static let added = DocumentSort(.added)
+
+    var ordering: String { (ascending ? "" : "-") + field.ordering }
+}
+
+/// Sections of the list view. Paperless sorts by the group first, so a group's documents arrive
+/// together and the sections fill in page by page.
+enum DocumentGrouping: String, CaseIterable, Identifiable {
+    case none
+    case correspondent
+    case documentType
+    case year
+    case month
+
+    var id: Self { self }
+
+    /// Order of the groups themselves. It follows the sort direction when the list is sorted by the
+    /// same field; otherwise names go A to Z and dates start with the newest.
+    func sort(for sort: DocumentSort?) -> DocumentSort? {
+        let field: SortField
+        switch self {
+        case .none: return nil
+        case .correspondent: field = .correspondent
+        case .documentType: field = .documentType
+        case .year, .month: field = .created
+        }
+        return DocumentSort(field, ascending: sort?.field == field ? sort?.ascending : nil)
+    }
+
+    /// Documents with the same key belong to the same section.
+    func key(of doc: Document) -> Int? {
+        switch self {
+        case .none: return 0
+        case .correspondent: return doc.correspondent
+        case .documentType: return doc.documentType
+        case .year: return doc.createdDate.map { Calendar.current.component(.year, from: $0) }
+        case .month:
+            return doc.createdDate.map {
+                let parts = Calendar.current.dateComponents([.year, .month], from: $0)
+                return (parts.year ?? 0) * 100 + (parts.month ?? 0)
+            }
+        }
+    }
+}
+
+struct DocumentGroup: Identifiable {
+    let key: Int?
+    var documents: [Document]
+    var id: Int { key ?? Int.min }
 }
 
 /// Everything that determines the document list. Pure and without networking, so it can be tested.
 struct DocumentQuery: Equatable {
     var text: String = ""
     var tokens: [SearchToken] = []
-    var sort: DocumentSort = .created
+    /// `nil` sorts a full-text search by relevance. Without text it falls back to the document date.
+    var sort: DocumentSort? = .created
+    var grouping: DocumentGrouping = .none
 
     var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     var isFiltered: Bool { !trimmedText.isEmpty || !tokens.isEmpty }
+
+    /// Sorting that applies when there is no text to rank by.
+    var effectiveSort: DocumentSort? { trimmedText.isEmpty ? sort ?? .created : sort }
+
+    /// The group's sort first, then the sort within the groups.
+    var sorts: [DocumentSort] {
+        var sorts: [DocumentSort] = []
+        for sort in [grouping.sort(for: effectiveSort), effectiveSort].compactMap({ $0 })
+        where !sorts.contains(where: { $0.field == sort.field }) {
+            sorts.append(sort)
+        }
+        return sorts
+    }
+
+    /// The `ordering` parameter. Full-text search sorts by a single field only and ignores a list;
+    /// the order within the groups is then restored locally, see `arranged`.
+    var ordering: String? {
+        let orderings = sorts.map(\.ordering)
+        guard let first = orderings.first else { return nil }
+        return trimmedText.isEmpty ? orderings.joined(separator: ",") : first
+    }
 
     func queryItems(page: Int, pageSize: Int) -> [URLQueryItem] {
         var items: [URLQueryItem] = [
@@ -411,11 +519,12 @@ struct DocumentQuery: Equatable {
             .init(name: "page_size", value: String(pageSize)),
             .init(name: "truncate_content", value: "true"),
         ]
-        if trimmedText.isEmpty {
-            items.append(.init(name: "ordering", value: sort.ordering))
-        } else {
-            // Full-text search over Paperless' index, sorted by relevance.
+        if !trimmedText.isEmpty {
+            // Full-text search over Paperless' index, by relevance unless a sort is given.
             items.append(.init(name: "query", value: trimmedText))
+        }
+        if let ordering {
+            items.append(.init(name: "ordering", value: ordering))
         }
         var tagIDs: [Int] = []
         var correspondentIDs: [Int] = []
@@ -458,6 +567,73 @@ struct DocumentQuery: Equatable {
         guard !words.isEmpty else { return true }
         let haystack = doc.title + " " + (doc.content ?? "")
         return words.allSatisfy { haystack.localizedStandardContains($0) }
+    }
+
+    /// Splits the documents into sections, in the order the groups first appear.
+    func groups(_ docs: [Document]) -> [DocumentGroup] {
+        var groups: [DocumentGroup] = []
+        var index: [Int?: Int] = [:]
+        for doc in docs {
+            let key = grouping.key(of: doc)
+            if let i = index[key] {
+                groups[i].documents.append(doc)
+            } else {
+                index[key] = groups.count
+                groups.append(DocumentGroup(key: key, documents: [doc]))
+            }
+        }
+        return groups
+    }
+
+    /// Puts loaded documents in display order. Paperless delivers groups contiguously, but within a
+    /// group it can only sort by the date (date groups) or by relevance (full-text search), so each
+    /// group is sorted here. Without grouping, Paperless' order stays as it is.
+    func arranged(_ docs: [Document], names: @escaping (SortField, Int?) -> String?) -> [Document] {
+        guard grouping != .none else { return docs }
+        let groups = groups(docs)
+        guard let sort = effectiveSort else { return groups.flatMap(\.documents) }
+        let compare = Self.comparator([sort], names: names)
+        return groups.flatMap { $0.documents.sorted(by: compare) }
+    }
+
+    /// The order for the offline copy, which has no server to sort it.
+    func sorted(_ docs: [Document], names: @escaping (SortField, Int?) -> String?) -> [Document] {
+        docs.sorted(by: Self.comparator(sorts.isEmpty ? [.created] : sorts, names: names))
+    }
+
+    /// Strict ordering by several sorts; missing values go last, ties to the newer document.
+    static func comparator(_ sorts: [DocumentSort], names: @escaping (SortField, Int?) -> String?) -> (Document, Document) -> Bool {
+        let comparisons = sorts.map { comparison($0, names: names) }
+        return { a, b in
+            for compare in comparisons {
+                let order = compare(a, b)
+                if order != .orderedSame { return order == .orderedAscending }
+            }
+            return a.id > b.id
+        }
+    }
+
+    private static func comparison(_ sort: DocumentSort, names: @escaping (SortField, Int?) -> String?) -> (Document, Document) -> ComparisonResult {
+        let value: (Document) -> String? = switch sort.field {
+        case .title: { $0.title }
+        case .created: { $0.created.map { String($0.prefix(10)) } }
+        case .added: { $0.added }
+        case .correspondent: { names(.correspondent, $0.correspondent) }
+        case .documentType: { names(.documentType, $0.documentType) }
+        }
+        let dates = sort.field == .created || sort.field == .added
+        return { a, b in
+            switch (value(a), value(b)) {
+            case let (x?, y?):
+                let order = dates ? (x < y ? .orderedAscending : x > y ? .orderedDescending : .orderedSame)
+                    : x.localizedStandardCompare(y)
+                guard !sort.ascending else { return order }
+                return order == .orderedAscending ? .orderedDescending : order == .orderedDescending ? .orderedAscending : .orderedSame
+            case (nil, nil): return .orderedSame
+            case (_, nil): return .orderedAscending
+            case (nil, _): return .orderedDescending
+            }
+        }
     }
 }
 

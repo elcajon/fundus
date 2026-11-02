@@ -130,10 +130,12 @@ actor LibraryStore {
     func documents(matching query: DocumentQuery) -> [Document] {
         ensureLoaded()
         let inbox = Set(snapshot.tags.filter(\.isInboxTag).map(\.id))
-        let key: (Document) -> String = query.sort == .added ? { $0.added ?? "" } : { $0.created ?? "" }
-        return snapshot.documents.values
-            .filter { query.matches($0, inboxTags: inbox) }
-            .sorted { key($0) == key($1) ? $0.id > $1.id : key($0) > key($1) }
+        let correspondents = Dictionary(snapshot.correspondents.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })
+        let types = Dictionary(snapshot.types.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })
+        let matches = snapshot.documents.values.filter { query.matches($0, inboxTags: inbox) }
+        return query.sorted(Array(matches)) { field, id in
+            id.flatMap { field == .correspondent ? correspondents[$0] : types[$0] }
+        }
     }
 
     func clear() {

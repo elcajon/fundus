@@ -145,7 +145,7 @@ struct SearchTests {
 
     @Test("Filter werden zu Query-Parametern")
     func queryItems() {
-        let query = DocumentQuery(text: "  zaun ", tokens: [.inbox, .tag(1), .tag(2), .correspondent(10)], sort: .added)
+        let query = DocumentQuery(text: "  zaun ", tokens: [.inbox, .tag(1), .tag(2), .correspondent(10)], sort: nil)
         let items = Dictionary(query.queryItems(page: 2, pageSize: 60).map { ($0.name, $0.value ?? "") },
                                uniquingKeysWith: { a, _ in a })
         #expect(items["query"] == "zaun")
@@ -161,6 +161,39 @@ struct SearchTests {
         let items = DocumentQuery(sort: .added).queryItems(page: 1, pageSize: 10)
         #expect(items.contains(URLQueryItem(name: "ordering", value: "-added")))
         #expect(!items.contains { $0.name == "query" })
+    }
+
+    @Test("Gruppen werden zuerst sortiert")
+    func groupOrdering() {
+        let byTitle = DocumentSort(.title)
+        #expect(DocumentQuery(sort: byTitle, grouping: .correspondent).ordering == "correspondent__name,title")
+        #expect(DocumentQuery(sort: DocumentSort(.correspondent, ascending: false), grouping: .correspondent).ordering == "-correspondent__name")
+        #expect(DocumentQuery(sort: byTitle, grouping: .month).ordering == "-created,title")
+        #expect(DocumentQuery(sort: DocumentSort(.created, ascending: true), grouping: .year).ordering == "created")
+        // Full-text search sorts by one field only; without a sort it stays by relevance.
+        #expect(DocumentQuery(text: "zaun", sort: byTitle, grouping: .documentType).ordering == "document_type__name")
+        #expect(DocumentQuery(text: "zaun", sort: nil).ordering == nil)
+        #expect(DocumentQuery(text: "", sort: nil).ordering == "-created")
+    }
+
+    @Test("Innerhalb der Gruppen wird lokal sortiert")
+    func arrangedGroups() {
+        func doc(_ id: Int, _ title: String, _ created: String, correspondent: Int? = nil) -> Document {
+            Document(id: id, title: title, correspondent: correspondent, documentType: nil, tags: [],
+                     created: created, added: nil, modified: nil, content: nil,
+                     pageCount: nil, originalFileName: nil, searchHit: nil)
+        }
+        let docs = [doc(1, "Zaun", "2026-05-20"), doc(2, "Abo", "2026-05-02"), doc(3, "Miete", "2026-04-30")]
+        let query = DocumentQuery(sort: DocumentSort(.title), grouping: .month)
+        #expect(query.arranged(docs) { _, _ in nil }.map(\.id) == [2, 1, 3])
+        #expect(query.groups(docs).map { $0.documents.count } == [2, 1])
+
+        let names = [10: "Obi", 11: "Bauhaus"]
+        let offline = DocumentQuery(sort: DocumentSort(.title), grouping: .correspondent)
+            .sorted([doc(1, "B", "2026-01-01", correspondent: 10), doc(2, "A", "2026-01-01", correspondent: 10),
+                     doc(3, "C", "2026-01-01"), doc(4, "D", "2026-01-01", correspondent: 11)]) { _, id in id.flatMap { names[$0] } }
+        // Groups A to Z, documents without a correspondent last.
+        #expect(offline.map(\.id) == [4, 2, 1, 3])
     }
 
     @Test("Offline-Filter")
