@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 struct LibraryView: View {
     @Environment(AppModel.self) private var model
-    @FocusState private var gridFocused: Bool
+    @FocusState private var focus: ContentFocus?
     @FocusState private var searchFocused: Bool
     @State private var columns = 1
     @State private var dropTargeted = false
@@ -12,9 +12,15 @@ struct LibraryView: View {
         @Bindable var model = model
         HStack(spacing: 0) {
             ZStack {
-                DocumentGrid(columns: $columns)
-                    .opacity(model.readerID == nil ? 1 : 0)
-                    .scaleEffect(model.readerID == nil ? 1 : 1.03)
+                Group {
+                    switch model.layout {
+                    case .grid: DocumentGrid(columns: $columns)
+                    case .list: DocumentList(focus: $focus)
+                    }
+                }
+                .opacity(model.readerID == nil ? 1 : 0)
+                // Only the grid zooms along. The list is an AppKit table, which flickers while scaled.
+                .scaleEffect(model.readerID == nil || model.layout == .list ? 1 : 1.03)
 
                 if let id = model.readerID {
                     ReaderView(documentID: id)
@@ -54,15 +60,17 @@ struct LibraryView: View {
             model.submitSearch()
             if model.search.isEmpty { return }
             if let first = model.documents.first { model.openReader(first.id) }
-            gridFocused = true
+            focusContent()
         }
         .onChange(of: model.searchFocusRequest) { searchFocused = true }
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted, perform: handleDrop)
-        .focusable()
+        // The list takes the keyboard itself; the window keeps it for the grid and reading mode.
+        .focusable(model.layout == .grid || model.readerID != nil)
         .focusEffectDisabled()
-        .focused($gridFocused)
-        .onAppear { gridFocused = true }
-        .onChange(of: model.readerID) { gridFocused = true }
+        .focused($focus, equals: .window)
+        .onAppear { focusContent() }
+        .onChange(of: model.readerID) { focusContent() }
+        .onChange(of: model.layout) { focusContent() }
         .onCommand(#selector(NSResponder.selectAll(_:))) { model.selectAll() }
         .onKeyPress(.space) { toggleReader() }
         .onKeyPress(.return) { toggleReader() }
@@ -78,6 +86,8 @@ struct LibraryView: View {
                 model.step(press.key == .leftArrow ? -1 : 1)
                 return .handled
             }
+            // The list moves its selection itself.
+            guard model.layout == .grid else { return .ignored }
             switch press.key {
             case .leftArrow: model.step(-1)
             case .rightArrow: model.step(1)
@@ -135,6 +145,24 @@ struct LibraryView: View {
                 ImportStatusButton()
             }
         }
+        ToolbarItem(placement: .primaryAction) {
+            Picker("Darstellung", selection: Binding(get: { model.layout }, set: { model.layout = $0 })) {
+                Label("Galerie", systemImage: "square.grid.2x2").tag(LibraryLayout.grid)
+                Label("Liste", systemImage: "list.bullet").tag(LibraryLayout.list)
+            }
+            .pickerStyle(.segmented)
+            .help("Als Galerie oder Liste anzeigen (⌘1, ⌘2)")
+        }
+        if model.layout == .list {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    GroupingPicker(model: model)
+                } label: {
+                    Label("Gruppieren", systemImage: "square.grid.3x1.below.line.grid.1x2")
+                }
+                .help("Liste gruppieren")
+            }
+        }
         ToolbarItemGroup(placement: .primaryAction) {
             Button { model.importFiles() } label: {
                 Label("Importieren", systemImage: "plus")
@@ -175,7 +203,7 @@ struct LibraryView: View {
                 Button {
                     model.openReader(doc.id)
                     searchFocused = false
-                    gridFocused = true
+                    focusContent()
                 } label: {
                     Label(doc.title, systemImage: "doc.text")
                 }
@@ -189,6 +217,10 @@ struct LibraryView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func focusContent() {
+        focus = model.layout == .list && model.readerID == nil ? .list : .window
     }
 
     private func toggleReader() -> KeyPress.Result {
@@ -324,7 +356,7 @@ struct DocumentGrid: View {
     }
 }
 
-private struct EmptyState: View {
+struct EmptyState: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
@@ -381,7 +413,7 @@ struct DocumentTile: View {
                     }
                 }
                 .onDrag { model.dragProvider(for: document) }
-                .contextMenu { contextMenu }
+                .contextMenu { DocumentMenu(model: model, document: document) }
 
             if showInfo {
                 VStack(alignment: .leading, spacing: 4) {
@@ -424,35 +456,6 @@ struct DocumentTile: View {
         return parts.joined(separator: ", ")
     }
 
-    @ViewBuilder private var contextMenu: some View {
-        Button("Lesen") { model.openReader(document.id) }
-        Button("Informationen") {
-            model.select(document.id)
-            model.showInspector = true
-        }
-        Divider()
-        Button("Teilen …") {
-            if !isSelected { model.select(document.id) }
-            Task { await model.share() }
-        }
-        Button("Exportieren …") {
-            if !isSelected { model.select(document.id) }
-            Task { await model.export() }
-        }
-        if model.isInInbox(document) && model.canEdit {
-            Divider()
-            Button("Als erledigt markieren") { Task { await model.markDone(document.id) } }
-        }
-        Divider()
-        if let url = model.client?.webURL(for: document.id) {
-            Button("In Paperless öffnen") { NSWorkspace.shared.open(url) }
-            Button("Link kopieren") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(url.absoluteString, forType: .string)
-            }
-        }
-    }
-
     private func highlightText(_ html: String) -> AttributedString {
         HighlightParser.segments(html).reduce(into: AttributedString()) { result, segment in
             var part = AttributedString(segment.text)
@@ -483,6 +486,43 @@ struct DocumentTile: View {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Context menu of a document in the grid and the list.
+struct DocumentMenu: View {
+    let model: AppModel
+    let document: Document
+
+    private var isSelected: Bool { model.selectedIDs.contains(document.id) }
+
+    var body: some View {
+        Button("Lesen") { model.openReader(document.id) }
+        Button("Informationen") {
+            model.select(document.id)
+            model.showInspector = true
+        }
+        Divider()
+        Button("Teilen …") {
+            if !isSelected { model.select(document.id) }
+            Task { await model.share() }
+        }
+        Button("Exportieren …") {
+            if !isSelected { model.select(document.id) }
+            Task { await model.export() }
+        }
+        if model.isInInbox(document) && model.canEdit {
+            Divider()
+            Button("Als erledigt markieren") { Task { await model.markDone(document.id) } }
+        }
+        Divider()
+        if let url = model.client?.webURL(for: document.id) {
+            Button("In Paperless öffnen") { NSWorkspace.shared.open(url) }
+            Button("Link kopieren") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(url.absoluteString, forType: .string)
             }
         }
     }

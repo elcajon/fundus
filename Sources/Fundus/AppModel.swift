@@ -44,11 +44,23 @@ final class AppModel {
     var zoom: Double = UserDefaults.standard.object(forKey: "zoom") as? Double ?? 1 {
         didSet { defaults.set(zoom, forKey: "zoom") }
     }
-    var sort: DocumentSort = DocumentSort(rawValue: UserDefaults.standard.string(forKey: "sort") ?? "") ?? .created {
+    var layout: LibraryLayout = LibraryLayout(rawValue: UserDefaults.standard.string(forKey: "layout") ?? "") ?? .grid {
+        didSet { defaults.set(layout.rawValue, forKey: "layout") }
+    }
+    /// The sort without search text. The list reloads through `query`.
+    var sort: DocumentSort = DocumentSort(SortField(rawValue: UserDefaults.standard.string(forKey: "sort") ?? "") ?? .created,
+                                          ascending: UserDefaults.standard.object(forKey: "sortAscending") as? Bool) {
         didSet {
-            defaults.set(sort.rawValue, forKey: "sort")
-            Task { await reload() }
+            defaults.set(sort.field.rawValue, forKey: "sort")
+            defaults.set(sort.ascending, forKey: "sortAscending")
         }
+    }
+    /// The sort while searching text. `nil` keeps Paperless' relevance order, so ↩ in the search
+    /// field opens the best hit. It is reset when the search is cleared.
+    var searchSort: DocumentSort?
+    /// Sections of the list view; the grid is never grouped.
+    var grouping: DocumentGrouping = DocumentGrouping(rawValue: UserDefaults.standard.string(forKey: "grouping") ?? "") ?? .none {
+        didSet { defaults.set(grouping.rawValue, forKey: "grouping") }
     }
 
     /// Free text in the search field. Completed `#tag`/`@name`/`typ:x` words become tokens.
@@ -56,12 +68,35 @@ final class AppModel {
         didSet {
             guard !isNormalizingSearch, search != oldValue else { return }
             normalizeSearch(final: false)
+            if !isSearchingText { searchSort = nil }
         }
     }
     var searchTokens: [SearchToken] = []
     @ObservationIgnored private var isNormalizingSearch = false
 
-    var query: DocumentQuery { DocumentQuery(text: search, tokens: searchTokens, sort: sort) }
+    private var isSearchingText: Bool { !search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    var query: DocumentQuery {
+        DocumentQuery(text: search, tokens: searchTokens, sort: isSearchingText ? searchSort : sort,
+                      grouping: layout == .list ? grouping : .none)
+    }
+
+    /// The sort shown in the list's column headers and the View menu; `nil` is relevance.
+    var currentSort: DocumentSort? {
+        get { query.effectiveSort }
+        set {
+            if isSearchingText {
+                searchSort = newValue
+            } else if let newValue {
+                sort = newValue
+            }
+        }
+    }
+
+    /// Correspondent and type names for sorting and section headers.
+    func name(_ field: SortField, _ id: Int?) -> String? {
+        field == .correspondent ? correspondentName(id) : typeName(id)
+    }
 
     var documents: [Document] = []
     var totalCount = 0
@@ -398,7 +433,8 @@ final class AppModel {
             let result = try await client.documents(query, page: page)
             guard generation == loadGeneration else { return }
             let known = Set(documents.map(\.id))
-            documents.append(contentsOf: result.results.filter { !known.contains($0.id) })
+            let query = query
+            documents = query.arranged(documents + result.results.filter { !known.contains($0.id) }, names: name)
             totalCount = result.count
             nextPage = result.next == nil ? nil : page + 1
         } catch ClientError.pangolinLoginRequired {
@@ -913,7 +949,9 @@ final class AppModel {
 
     /// Insert new documents at the front without reloading the grid.
     func insertNewDocuments(_ docs: [Document]) {
-        guard !query.isFiltered, sort == .created || sort == .added else { return }
+        // Only where new documents belong at the very top: newest first, without groups.
+        guard !query.isFiltered, query.grouping == .none, let sort = query.effectiveSort,
+              sort.field == .created || sort.field == .added, !sort.ascending else { return }
         let known = Set(documents.map(\.id))
         let fresh = docs.filter { !known.contains($0.id) }.sorted { $0.id > $1.id }
         guard !fresh.isEmpty else { return }

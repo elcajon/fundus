@@ -88,10 +88,14 @@ struct FundusCommands: Commands {
                 model.toggleInbox()
             }
             .keyboardShortcut("i", modifiers: [.command, .shift])
-            Picker("Sortieren nach", selection: Binding(get: { model.sort }, set: { model.sort = $0 })) {
-                Text("Dokumentdatum").tag(DocumentSort.created)
-                Text("Hinzugefügt").tag(DocumentSort.added)
-            }
+            Divider()
+            Toggle("Als Galerie", isOn: Binding(get: { model.layout == .grid }, set: { if $0 { model.layout = .grid } }))
+                .keyboardShortcut("1")
+            Toggle("Als Liste", isOn: Binding(get: { model.layout == .list }, set: { if $0 { model.layout = .list } }))
+                .keyboardShortcut("2")
+            SortMenu(model: model)
+            GroupingPicker(model: model)
+                .disabled(model.layout != .list)
             Divider()
             Button("Größere Dokumente") { withAnimation(.smooth) { model.zoomIn() } }
                 .keyboardShortcut("+")
